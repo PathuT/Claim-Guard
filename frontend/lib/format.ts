@@ -1,4 +1,4 @@
-/** Small formatting helpers shared across the three Console role views. */
+/** Small formatting helpers shared across the Console's role views. */
 
 export function formatInr(amount: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -8,32 +8,34 @@ export function formatInr(amount: number): string {
   }).format(amount);
 }
 
-/** Tailwind class pairs for a claim's status pill — one place to keep the
- * status -> color mapping consistent across the policyholder/officer views. */
+/** Tailwind class pairs for a claim's status pill, built on the design
+ * system's semantic tokens (--success/--warning/--destructive/--muted) —
+ * never the brand --primary, which the design brief reserves for
+ * buttons/active nav only, not status indicators. */
 const STATUS_STYLES: Record<string, string> = {
-  submitted: "bg-slate-100 text-slate-700",
-  assessing: "bg-blue-100 text-blue-700",
-  auto_approved: "bg-emerald-100 text-emerald-700",
-  approved: "bg-emerald-100 text-emerald-700",
-  approved_partial: "bg-amber-100 text-amber-700",
-  paid: "bg-emerald-100 text-emerald-800",
-  pending_human: "bg-amber-100 text-amber-800",
-  rejected: "bg-red-100 text-red-700",
-  needs_resubmission: "bg-red-100 text-red-700",
+  submitted: "bg-muted text-muted-foreground",
+  assessing: "bg-chart-1/10 text-chart-1",
+  auto_approved: "bg-success/10 text-success",
+  approved: "bg-success/10 text-success",
+  approved_partial: "bg-warning/10 text-warning",
+  paid: "bg-success/10 text-success",
+  pending_human: "bg-warning/10 text-warning",
+  rejected: "bg-destructive/10 text-destructive",
+  needs_resubmission: "bg-destructive/10 text-destructive",
 };
 
 export function statusStyle(status: string): string {
-  return STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700";
+  return STATUS_STYLES[status] ?? "bg-muted text-muted-foreground";
 }
 
 const SEVERITY_STYLES: Record<string, string> = {
-  low: "bg-slate-100 text-slate-700",
-  medium: "bg-amber-100 text-amber-800",
-  high: "bg-red-100 text-red-700",
+  low: "bg-muted text-muted-foreground",
+  medium: "bg-warning/10 text-warning",
+  high: "bg-destructive/10 text-destructive",
 };
 
 export function severityStyle(severity: string): string {
-  return SEVERITY_STYLES[severity.toLowerCase()] ?? "bg-slate-100 text-slate-700";
+  return SEVERITY_STYLES[severity.toLowerCase()] ?? "bg-muted text-muted-foreground";
 }
 
 export function humanizeStatus(status: string): string {

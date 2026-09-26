@@ -31,6 +31,7 @@ from data_gateway.models import (
     ClaimDocument,
     Hospital,
     MedicalRecord,
+    Payment,
     Policyholder,
     PolicyholderMember,
     PolicyTerm,
@@ -142,7 +143,7 @@ def main() -> None:
     try:
         # Idempotent: clear dependent tables first (FK order), then reference tables.
         for model in [
-            ClaimDocument, MedicalRecord, Claim, BankDetail,
+            Payment, ClaimDocument, MedicalRecord, Claim, BankDetail,
             PolicyholderMember, Policyholder, Hospital, PolicyTerm,
         ]:
             session.query(model).delete()

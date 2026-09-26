@@ -31,11 +31,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        <header className="border-b border-slate-200 bg-white">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <header className="border-b border-border bg-card">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-sm text-white">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary text-sm text-primary-foreground">
                 CG
               </span>
               ClaimGuard
@@ -45,7 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="rounded-md px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                  className="rounded-md px-3 py-1.5 font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
                   {link.label}
                 </Link>
@@ -54,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 href="http://localhost:6006"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                className="rounded-md px-3 py-1.5 font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 title="Real OpenTelemetry traces for every claim, one layer down from this Console"
               >
                 Phoenix traces ↗
@@ -65,7 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-8">
           {children}
         </main>
-        <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
+        <footer className="border-t border-border bg-card py-4 text-center text-xs text-muted-foreground">
           No login system exists (agent-to-agent JWT only) — every role view here is an unauthenticated lookup by policy/claim ID, by design (see docs/plan.md M8).
         </footer>
       </body>

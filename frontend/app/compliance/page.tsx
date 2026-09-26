@@ -5,11 +5,11 @@ import useSWR from "swr";
 import { ApiError, getAuditLog } from "@/lib/api";
 
 const VERDICT_STYLES: Record<string, string> = {
-  allowed: "bg-emerald-100 text-emerald-700",
-  blocked: "bg-red-100 text-red-700",
-  shadow: "bg-slate-100 text-slate-700",
-  error: "bg-red-100 text-red-700",
-  pending: "bg-amber-100 text-amber-800",
+  allowed: "bg-success/10 text-success",
+  blocked: "bg-destructive/10 text-destructive",
+  shadow: "bg-muted text-muted-foreground",
+  error: "bg-destructive/10 text-destructive",
+  pending: "bg-warning/10 text-warning",
 };
 
 const VERDICT_FILTERS = [
@@ -36,12 +36,12 @@ export default function CompliancePage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Compliance — governance audit log</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Every tool call any agent attempted, and the governance layer&apos;s verdict on it — allowed or blocked,
           by rule_id. This is the system-wide log; see a specific claim&apos;s own submission response for its
           per-claim audit trail.
         </p>
-        <p className="mt-2 max-w-2xl rounded-md bg-amber-50 p-3 text-xs text-amber-800">
+        <p className="mt-2 max-w-2xl rounded-md bg-warning/10 p-3 text-xs text-warning">
           Note: there is currently no medical-data-specific access filter here. The medical reviewer agent
           receives already-extracted diagnosis text as a plain argument from intake, in-process — not via a
           gateway-mediated tool call this log would capture — so a &ldquo;medical data access report&rdquo; filter
@@ -55,7 +55,7 @@ export default function CompliancePage() {
             key={f.label}
             onClick={() => setVerdict(f.value)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              verdict === f.value ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              verdict === f.value ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-muted"
             }`}
           >
             {f.label}
@@ -63,13 +63,13 @@ export default function CompliancePage() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-slate-500">Loading audit log…</p>}
-      {loadError && <p className="text-sm text-red-600">{loadError}</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading audit log…</p>}
+      {loadError && <p className="text-sm text-destructive">{loadError}</p>}
 
       {!loading && !loadError && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-border bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-2">Timestamp</th>
                 <th className="px-4 py-2">Agent</th>
@@ -81,24 +81,24 @@ export default function CompliancePage() {
             <tbody>
               {entries.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
                     No entries match this filter.
                   </td>
                 </tr>
               )}
               {entries.map((e) => (
-                <tr key={e.trace_id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 whitespace-nowrap text-xs text-slate-500">
+                <tr key={e.trace_id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs font-mono tabular-nums text-muted-foreground">
                     {new Date(e.timestamp).toLocaleString()}
                   </td>
-                  <td className="px-4 py-2 font-medium">{e.agent_id}</td>
-                  <td className="px-4 py-2 font-mono text-xs">{e.tool_name}</td>
+                  <td className="px-4 py-2 font-medium text-card-foreground">{e.agent_id}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-card-foreground">{e.tool_name}</td>
                   <td className="px-4 py-2">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${VERDICT_STYLES[e.policy_verdict] ?? "bg-slate-100 text-slate-700"}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${VERDICT_STYLES[e.policy_verdict] ?? "bg-muted text-muted-foreground"}`}>
                       {e.policy_verdict}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-xs text-slate-600">{e.violation_reason ?? "—"}</td>
+                  <td className="px-4 py-2 text-xs text-muted-foreground">{e.violation_reason ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

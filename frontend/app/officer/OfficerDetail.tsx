@@ -74,46 +74,46 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading claim…</p>;
-  if (loadError) return <p className="text-sm text-red-600">{loadError}</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading claim…</p>;
+  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!review) return null;
 
   const assessment = review.assessment;
   const finding = assessment?.medical_finding;
 
   return (
-    <div className="flex flex-col gap-4 border-t border-slate-200 pt-4">
+    <div className="flex flex-col gap-4 border-t border-border pt-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Claim</h3>
-          <p className="mt-1 text-sm text-slate-700">{review.stated_illness}</p>
-          <p className="mt-1 text-sm text-slate-500">Claimed: {formatInr(review.claimed_amount)}</p>
-          {assessment && <p className="text-sm text-slate-500">Assessed payable: {formatInr(assessment.payable_amount)}</p>}
-          <p className="text-sm text-slate-500">Remaining sum insured: {formatInr(review.remaining_sum_insured)}</p>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Claim</h3>
+          <p className="mt-1 text-sm text-card-foreground">{review.stated_illness}</p>
+          <p className="mt-1 text-sm tabular-nums text-muted-foreground">Claimed: {formatInr(review.claimed_amount)}</p>
+          {assessment && <p className="text-sm tabular-nums text-muted-foreground">Assessed payable: {formatInr(assessment.payable_amount)}</p>}
+          <p className="text-sm tabular-nums text-muted-foreground">Remaining sum insured: {formatInr(review.remaining_sum_insured)}</p>
         </div>
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Flags</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Flags</h3>
           {assessment && assessment.flags.length > 0 ? (
             <ul className="mt-1 flex flex-wrap gap-1">
               {assessment.flags.map((f) => (
-                <li key={f} className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                <li key={f} className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
                   {f}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-1 text-sm text-slate-400">None</p>
+            <p className="mt-1 text-sm text-muted-foreground">None</p>
           )}
         </div>
       </div>
 
       {assessment && assessment.deductions.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Deductions (clause references)</h3>
-          <ul className="mt-1 flex flex-col gap-1 text-sm text-slate-700">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deductions (clause references)</h3>
+          <ul className="mt-1 flex flex-col gap-1 text-sm text-card-foreground">
             {assessment.deductions.map((d, i) => (
-              <li key={i}>
-                {formatInr(d.amount)} — {d.reason} <span className="text-slate-400">({d.clause_id})</span>
+              <li key={i} className="tabular-nums">
+                {formatInr(d.amount)} — {d.reason} <span className="text-muted-foreground">({d.clause_id})</span>
               </li>
             ))}
           </ul>
@@ -122,13 +122,13 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
 
       {assessment && assessment.fraud_flags.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fraud signals</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fraud signals</h3>
           <ul className="mt-1 flex flex-col gap-1">
             {assessment.fraud_flags.map((f, i) => (
               <li key={i} className="flex items-center gap-2 text-sm">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${severityStyle(f.severity)}`}>{f.severity}</span>
                 {f.type}
-                <span className="text-xs text-slate-400">evidence: {f.evidence_ref}</span>
+                <span className="text-xs text-muted-foreground">evidence: {f.evidence_ref}</span>
               </li>
             ))}
           </ul>
@@ -137,9 +137,9 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
 
       {finding && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Medical reviewer&apos;s note</h3>
-          <p className="mt-1 rounded-md bg-slate-50 p-3 text-sm text-slate-700">{finding.notes_for_officer}</p>
-          <p className="mt-1 text-xs text-slate-400">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Medical reviewer&apos;s note</h3>
+          <p className="mt-1 rounded-md bg-secondary p-3 text-sm text-card-foreground">{finding.notes_for_officer}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
             ICD-10: {finding.icd10} · confidence {(finding.confidence * 100).toFixed(0)}%
           </p>
         </div>
@@ -147,8 +147,8 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
 
       <BreakGlass claimId={claimId} officerId={officerId} />
 
-      <form onSubmit={handleDecide} className="mt-2 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
-        <h3 className="text-sm font-medium text-slate-900">Record decision</h3>
+      <form onSubmit={handleDecide} className="mt-2 flex flex-col gap-3 rounded-md border border-border bg-secondary p-4">
+        <h3 className="text-sm font-medium text-card-foreground">Record decision</h3>
         <div className="flex gap-4 text-sm">
           {(["approved", "approved_partial", "rejected"] as const).map((d) => (
             <label key={d} className="flex items-center gap-1.5">
@@ -164,7 +164,7 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
               type="number"
               value={payoutAmount}
               onChange={(e) => setPayoutAmountOverride(e.target.value)}
-              className="w-40 rounded-md border border-slate-300 px-2 py-1"
+              className="w-40 rounded-md border border-border bg-background px-2 py-1 tabular-nums focus:border-primary outline-none"
             />
           </label>
         )}
@@ -174,13 +174,13 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
-            className="rounded-md border border-slate-300 px-2 py-1"
+            className="rounded-md border border-border bg-background px-2 py-1 focus:border-primary outline-none"
             placeholder="e.g. Waiting period exception confirmed via call with policyholder."
           />
         </label>
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
         {result && (
-          <p className="text-sm text-emerald-700">
+          <p className="text-sm text-success">
             Decision recorded ({result.officer_decision_id}) — claim now {result.new_state.replace(/_/g, " ")}
             {result.payout_result && " — payout executed"}.
           </p>
@@ -188,7 +188,7 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
         <button
           type="submit"
           disabled={submitting || !!result}
-          className="self-start rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+          className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? "Recording…" : "Submit decision"}
         </button>

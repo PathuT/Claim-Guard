@@ -42,7 +42,7 @@ export function BreakGlass({ claimId, officerId }: { claimId: string; officerId:
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="self-start rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+        className="self-start rounded-md border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/20"
       >
         Open full discharge summary (break-glass)
       </button>
@@ -50,8 +50,8 @@ export function BreakGlass({ claimId, officerId }: { claimId: string; officerId:
   }
 
   return (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
-      <p className="text-xs text-amber-800">
+    <div className="rounded-md border border-warning/40 bg-warning/10 p-4">
+      <p className="text-xs text-warning">
         This bypasses the normal restriction (only the medical reviewer agent reads raw medical text) and is
         permanently recorded in the compliance audit log under your officer ID and stated reason.
       </p>
@@ -62,26 +62,26 @@ export function BreakGlass({ claimId, officerId }: { claimId: string; officerId:
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             placeholder="Reason for opening the full discharge summary (required)"
-            className="rounded-md border border-amber-300 bg-white px-2 py-1 text-sm"
+            className="rounded-md border border-warning/40 bg-card px-2 py-1 text-sm outline-none focus:border-primary"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={loading}
-              className="rounded-md bg-amber-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-900 disabled:opacity-50"
+              className="rounded-md bg-warning px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               {loading ? "Opening…" : "Confirm and open"}
             </button>
-            <button type="button" onClick={() => setOpen(false)} className="text-xs text-amber-700 hover:underline">
+            <button type="button" onClick={() => setOpen(false)} className="text-xs text-warning hover:underline">
               Cancel
             </button>
           </div>
         </form>
       ) : (
         <div className="mt-3">
-          <p className="whitespace-pre-wrap rounded-md bg-white p-3 text-sm text-slate-800">{result.discharge_summary_text}</p>
-          <p className="mt-2 text-xs text-amber-700">Recorded — audit trace {result.audit_trace_id}</p>
+          <p className="whitespace-pre-wrap rounded-md bg-card p-3 text-sm text-card-foreground">{result.discharge_summary_text}</p>
+          <p className="mt-2 text-xs text-warning">Recorded — audit trace {result.audit_trace_id}</p>
         </div>
       )}
     </div>

@@ -30,6 +30,10 @@ npm-debug.log*
 data/synthetic/generated/
 data/synthetic/documents/*.pdf
 
+# Real documents uploaded via POST /claims/new (api/claim_intake.py) —
+# whatever a real user actually attaches, never synthetic/reproducible.
+data/uploads/*
+
 # AGT FlightRecorder audit trail (governance/flight_recorder.py) — local
 # state, not source; grows with every tool call once agents exist (M4+).
 flight_recorder.db

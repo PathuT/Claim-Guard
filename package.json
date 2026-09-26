@@ -11,6 +11,7 @@
     "dev:agentos": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn api.agentos:app --port 8000",
     "dev:officer": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn api.officer:app --port 8400",
     "dev:hello-agent": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m agents.hello_agent",
+    "demo:story": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python ../demo.py",
     "seed": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m data_gateway.seed"
   },
   "devDependencies": {

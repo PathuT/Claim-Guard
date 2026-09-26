@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from agents.settlement import PolicyContext
 from agents.supervisor import run_claim_flow
 from api.claim_context import remaining_sum_insured as compute_remaining_sum_insured
+from api.claim_intake import router as claim_intake_router
 from api.governance_selftest import router as governance_selftest_router
 from api.state_machine import ClaimStateContext, transition
 from data_gateway.db import get_session
@@ -61,6 +62,12 @@ app.add_middleware(
 # attempts against the token service/gateway, not claim-submission flows —
 # see api/governance_selftest.py's own docstring for why these live here.
 app.include_router(governance_selftest_router)
+
+# POST /claims/new — the real browser-upload entrypoint (see
+# api/claim_intake.py's own docstring): a policyholder attaches actual PDF
+# files, distinct from this module's POST /claims, which only ever
+# re-submits an already-seeded claim_id.
+app.include_router(claim_intake_router)
 
 
 class SubmitClaimRequest(BaseModel):

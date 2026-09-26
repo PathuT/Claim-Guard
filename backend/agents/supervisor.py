@@ -143,7 +143,17 @@ def run_claim_flow(
         flow_span.set_attribute("claim_id", claim_id)
 
         intake_agent = build_intake_agent()
-        intake_result = run_intake(intake_agent, claim_id, bill_text, discharge_summary_text)
+        intake_result_raw = run_intake(intake_agent, claim_id, bill_text, discharge_summary_text)
+        # The intake agent should return an IntakeResult model, but in case of a fallback string
+        # (e.g., when the LLM API is overloaded), attempt to parse it as JSON.
+        if isinstance(intake_result_raw, str):
+            try:
+                from .schemas import IntakeResult
+                intake_result = IntakeResult.parse_raw(intake_result_raw)
+            except Exception as exc:
+                raise ValueError(f"Failed to parse intake result: {exc}")
+        else:
+            intake_result = intake_result_raw
 
         medical_reviewer_agent = build_medical_reviewer_agent()
         finding = run_medical_review(
