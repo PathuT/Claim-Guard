@@ -15,12 +15,22 @@ from __future__ import annotations
 
 import base64
 import os
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
+from dotenv import load_dotenv
+
+# Load .env explicitly here rather than assuming some other already-imported
+# module did it first. Relying on import order silently produced a real bug:
+# TOKEN_SERVICE_PRIVATE_KEY read as unset (falling back to a fresh random
+# key) whenever this module happened to load before whatever else called
+# load_dotenv() — which broke cross-process signature verification between
+# the token service and the gateway even with the env var correctly set.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 ACTIVE_KID = "ts-2026-09"
 

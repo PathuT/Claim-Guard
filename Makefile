@@ -2,6 +2,11 @@
 # Services run as plain local processes instead of containers. Postgres is
 # hosted (Supabase) via DATABASE_URL in .env, not run locally.
 
+# `uv` installs to ~/.local/bin, which isn't always on PATH in every shell
+# (e.g. a shell opened before the installer ran) — export it here once so
+# every target below finds `uv` regardless of the invoking shell's state.
+export PATH := $(HOME)/.local/bin:$(PATH)
+
 .PHONY: up down test test-security lint seed eval compliance-report
 
 # Runs every ready long-running service concurrently in one terminal
@@ -25,7 +30,7 @@ lint:
 	cd frontend && npm run lint
 
 seed:
-	cd backend && PATH="$$HOME/.local/bin:$$PATH" uv run python -m data_gateway.seed
+	cd backend && uv run python -m data_gateway.seed
 
 eval:
 	cd evals/harbor && uv run harbor run  # added in M7

@@ -24,6 +24,7 @@ dependencies = [
     "faker>=30.0.0",
     "reportlab>=4.2.0",
     "pypdf>=5.0.0",
+    "agent-governance-toolkit[full]>=4.1.0",
 ]
 
 [dependency-groups]
@@ -37,3 +38,17 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+# rootdir is backend/, so `from auth import ...` / `from data_gateway import ...`
+# resolve the same way they do for `uv run python -m <package>` elsewhere in
+# this repo (see agents/hello_agent.py's docstring for the same import-mode note).
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+# B008 ("no function calls in argument defaults") doesn't know about FastAPI's
+# Depends()/Header()/Query() dependency-injection pattern, which relies
+# exactly on that shape — every FastAPI route in this repo hits this
+# false positive, so it's disabled repo-wide rather than noqa'd per line.
+ignore = ["B008"]

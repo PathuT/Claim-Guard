@@ -3,9 +3,11 @@
   "private": true,
   "description": "Root dev-orchestration only — actual code lives in backend/ and frontend/.",
   "scripts": {
-    "dev": "concurrently -n phoenix,frontend -c cyan,green \"npm:dev:phoenix\" \"npm:dev:frontend\"",
+    "dev": "concurrently -n phoenix,frontend,token-svc,gateway -c cyan,green,yellow,blue \"npm:dev:phoenix\" \"npm:dev:frontend\" \"npm:dev:token-service\" \"npm:dev:gateway\"",
     "dev:phoenix": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run phoenix serve",
     "dev:frontend": "cd frontend && npm run dev",
+    "dev:token-service": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn auth.app:app --port 8100",
+    "dev:gateway": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn data_gateway.app:app --port 8200",
     "dev:hello-agent": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m agents.hello_agent",
     "seed": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m data_gateway.seed"
   },

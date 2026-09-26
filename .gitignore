@@ -29,3 +29,8 @@ npm-debug.log*
 # deterministic and reproducible, so not committed; see data/synthetic/generators/)
 data/synthetic/generated/
 data/synthetic/documents/*.pdf
+
+# AGT FlightRecorder audit trail (governance/flight_recorder.py) — local
+# state, not source; grows with every tool call once agents exist (M4+).
+flight_recorder.db
+backend/flight_recorder.db
