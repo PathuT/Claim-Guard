@@ -1,0 +1,15 @@
+{
+  "name": "claimguard",
+  "private": true,
+  "description": "Root dev-orchestration only — actual code lives in backend/ and frontend/.",
+  "scripts": {
+    "dev": "concurrently -n phoenix,frontend -c cyan,green \"npm:dev:phoenix\" \"npm:dev:frontend\"",
+    "dev:phoenix": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run phoenix serve",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:hello-agent": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m agents.hello_agent",
+    "seed": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m data_gateway.seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
