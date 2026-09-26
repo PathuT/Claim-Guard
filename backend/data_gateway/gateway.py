@@ -13,7 +13,7 @@ from __future__ import annotations
 import jwt
 
 from auth.keys import public_key_for
-from auth.matrix import field_allowlist_for
+from auth.matrix import field_allowlist_for, write_allowlist_for
 from auth.token_service import AUDIENCE, ISSUER, is_revoked
 
 
@@ -88,7 +88,12 @@ def validate_token(token: str, requested_scope: str, requested_claim_id: str | N
     return claims
 
 
-def check_row_binding(claims: dict, row_claim_id: str, row_policy_number: str | None = None) -> None:
+def check_row_binding(
+    claims: dict,
+    row_claim_id: str | None,
+    row_policy_number: str | None = None,
+    token_policy_number: str | None = None,
+) -> None:
     """Step 6: requested rows belong to the token's claim_id.
 
     security-matrix.md §1: "unless the scope is read_pseudonymised, the
@@ -96,15 +101,59 @@ def check_row_binding(claims: dict, row_claim_id: str, row_policy_number: str | 
     equals the token's claim_id claim." Pseudonymised scopes intentionally
     skip row binding (they read across claims by design) — callers must not
     call this for those scopes.
+
+    Two binding modes, matching the two collection shapes that need this:
+    - Direct: the row itself carries claim_id (claims, medical_records,
+      claim_documents) — compared straight to the token's claim_id.
+    - Indirect (bank_details, which has no claim_id column at all — it's
+      keyed by policy_number): the caller resolves the token's own claim_id
+      to that claim's policy_number *first* (data_gateway/app.py does this
+      via its own DB query, since only the gateway touches Postgres) and
+      passes both `token_policy_number` (the resolved value) and
+      `row_policy_number` (the bank_details row's own policy_number); this
+      compares the two rather than trusting either alone. Without this
+      resolution step, bank_details:read had no row binding at all — any
+      claim-scoped token could read every policyholder's bank details
+      (found and fixed before the payout agent was built on top of it, the
+      same "verify against real behaviour, don't assume" discipline that
+      caught the M2/M3 cross-process key bugs).
     """
     token_claim_id = claims.get("claim_id")
     if token_claim_id is None:
         raise GatewayDenied("GATEWAY-NO-CLAIM-BINDING", "token has no claim_id to bind rows to")
-    if row_claim_id != token_claim_id:
-        raise GatewayDenied(
-            "GATEWAY-ROW-BINDING",
-            f"requested row's claim_id {row_claim_id!r} does not match token's claim_id {token_claim_id!r}",
-        )
+
+    if row_claim_id is not None:
+        if row_claim_id != token_claim_id:
+            raise GatewayDenied(
+                "GATEWAY-ROW-BINDING",
+                f"requested row's claim_id {row_claim_id!r} does not match token's claim_id {token_claim_id!r}",
+            )
+        return
+
+    if row_policy_number is not None or token_policy_number is not None:
+        if token_policy_number is None:
+            raise GatewayDenied("GATEWAY-NO-CLAIM-BINDING", f"could not resolve claim {token_claim_id!r} to a policy_number")
+        if row_policy_number != token_policy_number:
+            raise GatewayDenied(
+                "GATEWAY-ROW-BINDING",
+                f"requested row's policy_number {row_policy_number!r} does not match claim {token_claim_id!r}'s registered policy {token_policy_number!r}",
+            )
+        return
+
+    raise GatewayDenied("GATEWAY-NO-CLAIM-BINDING", "row has neither claim_id nor a resolvable policy_number to bind against")
+
+
+def filter_to_write_allowlist(data: dict, scope: str) -> dict:
+    """Write-side counterpart of filter_to_allowlist: strips any field not
+    in the scope's WRITE_FIELD_ALLOWLIST from the agent's write payload
+    before it reaches the ORM. A write scope with no allowlist entry is a
+    modelling error (every *:write scope has one) rather than an
+    intentional full-row grant, so this fails closed by returning {}
+    instead of the read side's "no allowlist -> unfiltered" behaviour."""
+    allowlist = write_allowlist_for(scope)
+    if allowlist is None:
+        return {}
+    return {k: v for k, v in data.items() if k in allowlist}
 
 
 def filter_to_allowlist(row: dict, scope: str, agent: str | None = None) -> dict:

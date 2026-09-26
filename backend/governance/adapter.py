@@ -68,15 +68,33 @@ class GovernanceDenied(Exception):
         super().__init__(f"{rule_id}: {message}")
 
 
-def check_and_audit(ctx: ToolCallContext) -> None:
+def check_and_audit(ctx: ToolCallContext) -> str:
     """The one function every agent tool call must go through
     (docs/CLAUDE.md invariant 1). Raises GovernanceDenied on any policy
-    failure; returns None (silently) if allowed. Always writes an audit
-    entry via FlightRecorder and a `governance.decision` span, on both
-    the allow and deny path.
+    failure; returns the audit trace_id (FlightRecorder's own id for this
+    decision) on success. Always writes an audit entry via FlightRecorder
+    and a `governance.decision` span, on both the allow and deny path.
+
+    M5: the return value changed from None to the trace_id (existing
+    callers that ignored the return value are unaffected) because
+    execute_payout needs a real `agt_decision_id` to record on the
+    payments row (docs/architecture.md §10) — the audit trace_id already
+    *is* that decision id; inventing a second, separate one would just be
+    two ids for the same governance decision.
     """
     recorder = get_recorder()
-    trace_id = recorder.start_trace(agent_id=ctx.agent_id, tool_name=ctx.tool_name, tool_args=ctx.args, input_prompt=ctx.input_prompt)
+    # `input_prompt` is FlightRecorder's own free-text metadata field (never
+    # populated by any agent here — see ToolCallContext.input_prompt's own
+    # default of None), so it's used to carry req_id/claim_id instead of
+    # folding them into tool_args, which would corrupt tool_args' actual
+    # meaning ("what the tool call's real arguments were") for anyone
+    # reading the audit log later. Needed so a caller (e.g. the Harbor
+    # verifier, evals/harbor/adapter/verifier.py) can filter this claim's
+    # own audit entries out of the full log — FlightRecorder.query_logs()
+    # has no claim_id/req_id filter of its own (confirmed against the real
+    # agent_control_plane API), only agent_id/policy_verdict/time range.
+    audit_marker = f"req_id={ctx.req_id}" + (f" claim_id={ctx.claim_id}" if ctx.claim_id else "")
+    trace_id = recorder.start_trace(agent_id=ctx.agent_id, tool_name=ctx.tool_name, tool_args=ctx.args, input_prompt=audit_marker)
 
     with tracer.start_as_current_span("governance.decision") as span:
         span.set_attribute("agent_id", ctx.agent_id)
@@ -112,6 +130,7 @@ def check_and_audit(ctx: ToolCallContext) -> None:
         span.set_attribute("decision", "allow")
         recorder.log_success(trace_id)
         span.set_attribute("audit_trace_id", trace_id)
+        return trace_id
 
 
 def _deny(recorder, trace_id: str, span, result: RuleResult) -> None:

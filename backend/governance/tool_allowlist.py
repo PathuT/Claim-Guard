@@ -15,6 +15,14 @@ AGENT_TOOLS: dict[str, set[str]] = {
     "coverage": {"search_policy_terms", "read_policy_limited", "read_claim", "submit_assessment"},
     "fraud": {"search_claims_pseudonymised", "read_hospital", "submit_fraud_screen"},
     "payout": {"read_bank_details", "execute_payout"},
+    # Not an autonomous agent — the human console role itself
+    # (security-matrix.md §9: "claims_officer ... open full discharge
+    # summary via audited break-glass (reason required)"). Reusing
+    # check_and_audit()/GOV-001 for this one human action means a
+    # break-glass access shows up in the exact same audit log a denied
+    # agent tool call would (docs/plan.md M8's "audited break-glass"),
+    # rather than needing a second, parallel logging path.
+    "claims_officer": {"break_glass_discharge_summary_access"},
 }
 
 # GOV-002: per-request tool-call budget, "e.g. 40 calls" (security-matrix.md §8).

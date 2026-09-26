@@ -1,0 +1,62 @@
+# S01 (docs/use-case.md §8): Priya, dengue, 3 days, ₹38,500 -> approved,
+# ₹37,300 paid (T2). Sidecars alongside `main` (reserved by Harbor for the
+# agent container — see docs/adr/006): a throwaway Postgres, and the
+# combined backend image (token service + data gateway + AgentOS) built
+# from evals/harbor/docker/backend.Dockerfile against backend/ as context.
+#
+# `main` itself does nothing here — the real agents run inside the
+# `backend` sidecar's AgentOS process, not inside the sandbox Harbor
+# executes code in. This matches every other task's compose file
+# byte-for-byte except for the seeded claim_id the adapter is told to
+# submit (task.toml's [agent] section, not this file).
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      # Repo root, 5 levels up from this file's own directory
+      # (environment/ -> S0X/ -> tasks/ -> harbor/ -> evals/ -> repo
+      # root) — NOT backend/ alone. backend/data_gateway/seed.py needs
+      # the sibling data/synthetic/ generators too (see
+      # evals/harbor/docker/backend.Dockerfile's own comment on why a
+      # backend/-only context broke this at real `docker compose up`
+      # time with ModuleNotFoundError: No module named 'claims').
+      context: ../../../../..
+      # Resolved relative to `context:` (the repo root), NOT relative to
+      # this compose file's own directory — confirmed live against real
+      # Docker Compose 5.x/classic builder.
+      dockerfile: evals/harbor/docker/backend.Dockerfile
+    env_file:
+      - ../../../docker/eval.env
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+    # No `ports:` (host-mapped) here on purpose: Harbor exposes no API to
+    # discover a compose sidecar's mapped host port at trial runtime, and a
+    # hardcoded host port would collide across concurrent trials
+    # (`harbor run -n <concurrency>`). `main` and `backend` share the same
+    # Compose-generated Docker network regardless, so the adapter
+    # (evals/harbor/adapter/adapter.py) reaches this service by its Compose
+    # service name — `http://backend:8000` — via environment.exec() inside
+    # `main`, not from the Harbor host process.
+
+  main:
+    depends_on:
+      backend:
+        condition: service_healthy

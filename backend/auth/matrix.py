@@ -55,6 +55,18 @@ CLAIMS_READ_ALLOWLIST_BY_AGENT: dict[str, list[str]] = {
     "payout": ["claim_id", "member_id", "dates", "claimed_amount", "line_items", "status", "assessment"],
 }
 
+# M5: write-side field allowlists for the three `*:write` scopes — which
+# fields a token holding that scope is permitted to *set*, mirroring
+# FIELD_ALLOWLISTS' read-side restriction but for the write path
+# (data_gateway's POST /write). Anything not listed here is silently
+# dropped from the write payload before it reaches the ORM, the same
+# fail-closed-by-omission discipline as the read allowlists.
+WRITE_FIELD_ALLOWLISTS: dict[str, list[str]] = {
+    "claims:write": ["line_items", "claimed_amount", "status", "assessment"],
+    "medical_records:write": ["diagnosis_text", "icd10", "history", "treatment"],
+    "payments:write": ["amount", "account_ref", "agt_decision_id"],
+}
+
 
 def agent_allowed_scope(agent: str, scope: str) -> bool:
     """GOV-003: "Requested scope not in matrix for this agent" -> deny."""
@@ -76,3 +88,11 @@ def field_allowlist_for(scope: str, agent: str | None = None) -> list[str] | Non
     if scope == "claims:read" and agent in CLAIMS_READ_ALLOWLIST_BY_AGENT:
         return CLAIMS_READ_ALLOWLIST_BY_AGENT[agent]
     return FIELD_ALLOWLISTS.get(scope)
+
+
+def write_allowlist_for(scope: str) -> list[str] | None:
+    """M5: fields a `*:write` scope may set. None means "this scope has no
+    write allowlist" (not currently reachable for any *:write scope — every
+    one of them is deliberately restricted; absence is a modelling error,
+    not an intentional full-row-write grant)."""
+    return WRITE_FIELD_ALLOWLISTS.get(scope)

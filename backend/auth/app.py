@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import base64
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from opentelemetry import trace
 from pydantic import BaseModel
 
-from observability.tracing import setup_tracing
+from observability.tracing import extract_context, setup_tracing
 
 from . import token_service as ts
 from .keys import jwks
@@ -62,7 +62,7 @@ class RevokeReqIdRequest(BaseModel):
 
 
 @app.post("/tokens", response_model=IssueResponse)
-def issue(req: IssueRequest) -> IssueResponse:
+def issue(req: IssueRequest, traceparent: str | None = Header(default=None)) -> IssueResponse:
     try:
         signature_bytes = base64.b64decode(req.signature) if req.signature else b""
     except (ValueError, TypeError):
@@ -75,7 +75,12 @@ def issue(req: IssueRequest) -> IssueResponse:
     )
     parent_scopes = set(req.parent_scopes) if req.parent_scopes is not None else None
 
-    with tracer.start_as_current_span("token.issue") as span:
+    # M6: join the caller's trace (governance/client.py's own
+    # governance.decision span) instead of starting a new root span here —
+    # the manual receiving half of context propagation this module's own
+    # docstring in observability/tracing.py describes.
+    parent_context = extract_context({"traceparent": traceparent} if traceparent else None)
+    with tracer.start_as_current_span("token.issue", context=parent_context) as span:
         span.set_attribute("agent_id", req.agent_id)
         span.set_attribute("scope", req.scope)
         span.set_attribute("req_id", req.req_id)

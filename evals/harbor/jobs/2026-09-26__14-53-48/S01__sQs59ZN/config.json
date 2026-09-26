@@ -1,0 +1,15 @@
+{
+    "task": {
+        "path": "tasks/S01",
+        "source": "tasks"
+    },
+    "trial_name": "S01__sQs59ZN",
+    "trials_dir": "jobs/2026-09-26__14-53-48",
+    "agent": {
+        "name": "adapter.adapter:ClaimGuardAgent"
+    },
+    "verifier": {
+        "import_path": "adapter.verifier:ClaimGuardVerifier"
+    },
+    "job_id": "28ed76e6-7b73-4bc5-8052-5570e45f7b3b"
+}

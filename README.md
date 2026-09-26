@@ -14,7 +14,7 @@ built against.
 
 ---
 
-## Status: M0-M3 done ✅ (M4 next)
+## Status: M0-M6 done ✅ (M7 next)
 
 **M0 — Skeleton:** repo layout, `uv` backend (Agno 3.0), Next.js frontend, Phoenix +
 OpenInference wired and verified with a real traced agent call.
@@ -57,8 +57,126 @@ framework-agnostic core, per ADR-002.
   M2 *and* M3 "done when" conditions — covering every rule's allow and deny
   case, plus the full token/gateway checklist from M2.
 
-Everything past this point (the six ClaimGuard agents, console, evals) is
-**not built yet** — see [`docs/plan.md`](docs/plan.md) M4 onward.
+**M4 — Intake, medical reviewer, coverage:** the first 3 real ClaimGuard
+agents, built with Agno (`backend/agents/`).
+- `intake.py` / `medical_reviewer.py`: typed Agno agents (`output_schema`)
+  matching the MedicalFinding contract in `docs/architecture.md` §9 exactly.
+  Document text is delimited and labelled untrusted, passed in the user
+  message only — never merged into the system prompt (invariant 8); verified
+  resistant to S06's actual injection payload across repeated live runs.
+- `settlement.py`: the payable-amount arithmetic is deterministic Python, not
+  LLM reasoning (docs/architecture.md §2), so every deduction's `clause_id`
+  and amount is guaranteed correct, not just plausible.
+- `supervisor.py`: a plain Python orchestrator, not an Agno `Team` — every
+  real `TeamMode` (coordinate/route/broadcast/tasks, confirmed by reading
+  Agno's own source) has an LLM leader deciding delegation, which is the
+  wrong fit for the fixed intake→medical_reviewer→coverage sequence
+  `docs/architecture.md` §7 specifies.
+- **Verified against real S01 documents end-to-end through the actual
+  supervisor: produces exactly ₹37,300 payable**, matching M4's "done when"
+  condition precisely, not approximately.
+
+**M5 — Fraud, payout, tiers, human-in-the-loop:** the two remaining agents
+(`fraud`, `payout`) join the supervisor, and this is where the security core
+(M2/M3) gets exercised by real agents for the first time — not just unit
+tests. New: `governance/client.py` (the real chain: `check_and_audit()` →
+signed identity assertion → token service HTTP → data gateway HTTP), a
+`POST /write` gateway endpoint for the three `*:write` scopes, real HMAC
+pseudonymisation (`data_gateway/pseudonymise.py`) for `claims:read_pseudonymised`,
+a claim state machine (`api/state_machine.py`) matching
+`docs/architecture.md` §8 exactly, and an officer decision API (`api/officer.py`).
+- `fraud.py`: screens pseudonymised claims + the hospital watchlist through
+  the real gateway. Pre-filters the 409-row claim set down to evidence rows
+  in plain Python before it ever reaches the LLM (raw-dumping all rows hit
+  Groq's per-request token limit, and would have violated data-minimisation
+  regardless) — verified live: S01 comes back clean, S04's duplicate-bill
+  and S10's watchlisted-hospital flags both fire with correct evidence_refs.
+- `payout.py`: plain Python, not an Agno agent (same "enforcement is
+  deterministic code" reasoning as `settlement.py`) — `execute_payout` goes
+  through PAY-001..006 with `trusted` values pulled from Postgres, never
+  from the call's own args. **S06 verified live end-to-end, three ways**:
+  wrong amount, wrong account, and both — all three denied by name
+  (PAY-001/PAY-002), and the full supervisor run (real LLM reading the
+  actual poisoned PDF) never even attempted the injected ₹4,50,000 in the
+  first place.
+- Found and fixed a real gap while wiring payout: `bank_details:read` had no
+  row binding at all (it has no `claim_id` column, so the gateway's binding
+  check silently skipped it) — any claim-scoped token could read every
+  policyholder's bank details. Fixed in `data_gateway/gateway.py`/`app.py`
+  by resolving the token's claim to its policy_number before comparing.
+- Found and fixed a real M1 seed-data bug while testing S03: its claim was
+  attached to Priya's 14-month-old policy instead of Rahul's 20-day-old one
+  (the policy the "20 days ago" scenario narrative actually describes), so
+  it paid automatically instead of stopping at `pending_human`. Corrected
+  in `data/synthetic/generators/claims.py` and `docs/use-case.md`.
+- **All three of M5's "done when" conditions verified live, end to end,
+  through the real supervisor**: S01 pays automatically (₹37,300, T2); S02
+  (₹71,000 room-rent-excess case) and S03 (waiting-period case) both stop
+  at `pending_human`; S06 is never paid, in any variation tried.
+- Officer decision API (`api/officer.py`): `pending_human → approved/
+  approved_partial/rejected`, itself a real governed `set_claim_state` call
+  so STATE-001 applies identically — a rejection with no officer decision
+  record is denied the same way whether it comes from the API or a direct
+  call. An approval supplies PAY-003/004's officer_approval_id and then
+  calls payout for real. Tested live: an approved S02 pays through the
+  officer path; a rejected S03 records the decision with no payout attempt.
+- Token revocation wired into the state machine itself: entering `paid`,
+  `rejected`, or `pending_human` revokes every token issued for that
+  `req_id` (security-matrix.md §4), not left as an unused function.
+- `make test-security` still passes **70/70** (unaffected by M5); the real
+  audit trail (`FlightRecorder`) was inspected directly and its hash chain
+  verified intact across every allow/deny decision made while testing M5.
+
+**M6 — Observability deepening:** one real trace per claim across every
+service, redaction that actually runs before export (not just span-side
+attribute hygiene), and documented Phoenix views.
+- **Context propagation** (`observability/tracing.py`, `governance/
+  client.py`): manual W3C `traceparent` inject/extract via plain
+  `opentelemetry.propagate` — no auto-instrumentation libraries, matching
+  docs/CLAUDE.md's own stack line ("custom OTel spans," not
+  auto-instrumented httpx/FastAPI). `governance/client.py`'s `call_tool()`
+  now wraps its whole HTTP round-trip (governance check + token issuance +
+  gateway call) in one `tool.call` span so it stays open long enough to
+  actually be the parent of the calls it makes — found live that the
+  original `governance.decision` span alone had already closed by the time
+  the HTTP calls ran, so propagation code that was itself correct still
+  produced disconnected traces.
+- **Verified live, not asserted**: a full S01 claim flow produces **one
+  shared `trace_id`** across the supervisor process, the token service, and
+  the data gateway — 23 spans (Agno agent runs, `governance.decision`,
+  `token.issue`, `gateway.access`, `tool.call`) all under one trace, checked
+  directly against Phoenix's own stored spans, not just logged and assumed.
+- **Redaction processor** (`observability/redaction.py`), registered first
+  in the export pipeline (before spans ever reach Phoenix's exporter):
+  medical free text → `[REDACTED:medical]`, account numbers → last 4
+  digits, the two fixed persona names → stable pseudonyms. Found and fixed
+  a real leak while verifying live: OpenInference's per-message LLM
+  attributes (`llm.input_messages.<N>.message.content`) carried a second,
+  unredacted copy of the same raw diagnosis/discharge text that
+  `input.value`/`output.value` were already correctly redacting — fixed
+  with a role-aware rule (system prompts stay readable; user/assistant
+  content is redacted) rather than blanket-hiding every LLM message.
+- **M6's own "done when" verified live in one real trace**: S06 run through
+  the actual supervisor (real LLM reading the real poisoned PDF) plus the
+  adversarial ₹4,50,000/unregistered-account payout attempt in the same
+  trace — the PAY-001 denial is visible, and a direct search of every
+  span's attributes in that trace turns up zero instances of the raw
+  injected payload text, the unregistered account number, or the real name.
+- Also found and fixed, incidentally: a genuine version-skew bug in
+  `arize-phoenix-otel` (latest release, 0.17.1) against the current
+  `arize-phoenix` — its `register()` convenience function unconditionally
+  crashes on a renamed internal attribute. Worked around by building the
+  `TracerProvider`/exporter directly from `opentelemetry-sdk` instead of
+  through the broken wrapper — confirmed byte-for-byte equivalent Phoenix
+  project placement via its own `/v1/projects` API.
+- Phoenix views documented with real, tested filter expressions (not
+  guessed syntax) in
+  [`docs/observability-dashboards.md`](docs/observability-dashboards.md):
+  denials by rule, token issuance by agent, latency per agent, cost per
+  claim.
+
+Everything past this point (evals, the console, tiers/scoping) is **not
+built yet** — see [`docs/plan.md`](docs/plan.md) M7 onward.
 
 ---
 

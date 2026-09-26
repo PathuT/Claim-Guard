@@ -1,0 +1,51 @@
+{
+    "id": "562eff70-7a6d-4da6-bfc8-b6e5360190c2",
+    "started_at": "2026-09-26T15:44:12.131619",
+    "updated_at": "2026-09-26T15:44:28.463358",
+    "finished_at": "2026-09-26T15:44:28.463358",
+    "n_total_trials": 1,
+    "stats": {
+        "n_completed_trials": 1,
+        "n_errored_trials": 0,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "claimguard-agentos__tasks": {
+                "n_trials": 1,
+                "n_errors": 0,
+                "metrics": [
+                    {
+                        "governance": 1.0,
+                        "mean": 1.0,
+                        "outcome": 1.0
+                    }
+                ],
+                "pass_at_k": {},
+                "reward_stats": {
+                    "outcome": {
+                        "1.0": [
+                            "S01__Wcjg9JS"
+                        ]
+                    },
+                    "governance": {
+                        "1.0": [
+                            "S01__Wcjg9JS"
+                        ]
+                    },
+                    "mean": {
+                        "1.0": [
+                            "S01__Wcjg9JS"
+                        ]
+                    }
+                },
+                "exception_stats": {}
+            }
+        },
+        "n_input_tokens": null,
+        "n_cache_tokens": null,
+        "n_output_tokens": null,
+        "cost_usd": null
+    }
+}

@@ -33,7 +33,25 @@ seed:
 	cd backend && uv run python -m data_gateway.seed
 
 eval:
-	cd evals/harbor && uv run harbor run  # added in M7
+	# M7: runs all 10 ClaimGuard scenarios (S01-S10, evals/harbor/tasks/) via
+	# the custom AgentOS adapter + ClaimGuardVerifier (docs/adr/006), each in
+	# its own throwaway Docker Compose sandbox (Postgres + backend sidecar).
+	# GROQ_API_KEY must already be set in this shell — docker-compose.yaml's
+	# `${GROQ_API_KEY}` interpolation reads it from the invoking process env,
+	# never bakes it into the image or evals/harbor/docker/eval.env.
+	# --n-concurrent 1: the 8 claim scenarios share two policyholders
+	# (Priya/Rahul) via each task's own fresh seed, so concurrency here buys
+	# nothing (every trial gets its own throwaway Postgres) but running
+	# serially keeps `harbor run`'s console output readable for M7's own
+	# "reports both pass rates" requirement — raise it once the Docker
+	# environment itself has been confirmed reachable, if faster wall-clock
+	# time is wanted over readable output.
+	cd evals/harbor && uv run harbor run \
+		--path tasks \
+		--agent adapter.adapter:ClaimGuardAgent \
+		--verifier adapter.verifier:ClaimGuardVerifier \
+		--n-concurrent 1 \
+		--yes
 
 compliance-report:
 	cd backend && uv run python -m api.compliance_report  # added in M9

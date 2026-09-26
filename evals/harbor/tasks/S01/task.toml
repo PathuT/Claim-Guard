@@ -1,0 +1,20 @@
+schema_version = "1.4"
+
+[metadata]
+scenario_id = "S01"
+description = "Priya, dengue, 3 days, ₹38,500 claimed -> approved, ₹37,300 paid (T2, auto)"
+claim_id = "CLM-2026-018833"
+expected_final_state = "paid"
+expected_payable_amount = 37300
+expected_deny_rule_ids = []
+expected_min_allowed_entries = 4
+expected_fraud_flag_types = []
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 60.0
+
+[environment]
+build_timeout_sec = 600.0

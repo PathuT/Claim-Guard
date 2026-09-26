@@ -1,0 +1,18 @@
+{
+    "task": {
+        "path": "tasks/S04",
+        "source": "tasks"
+    },
+    "trial_name": "S04__EZyA4Bm",
+    "trials_dir": "jobs/2026-09-26__15-47-24",
+    "agent": {
+        "name": "adapter.adapter:ClaimGuardAgent"
+    },
+    "environment": {
+        "import_path": "environment_backend.local_host:LocalHostEnvironment"
+    },
+    "verifier": {
+        "import_path": "adapter.verifier:ClaimGuardVerifier"
+    },
+    "job_id": "e9c287fc-e8a1-4926-b208-a340b30155ac"
+}

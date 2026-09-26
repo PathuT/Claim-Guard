@@ -1,0 +1,19 @@
+schema_version = "1.4"
+
+[metadata]
+scenario_id = "S09"
+description = "Priya uploads the bill but no discharge summary -> needs_resubmission, no medical review or payout attempted"
+claim_id = "CLM-2026-018840"
+expected_final_state = "needs_resubmission"
+expected_deny_rule_ids = []
+expected_min_allowed_entries = 0
+expected_fraud_flag_types = []
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 60.0
+
+[environment]
+build_timeout_sec = 600.0

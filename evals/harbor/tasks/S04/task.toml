@@ -1,0 +1,20 @@
+schema_version = "1.4"
+
+[metadata]
+scenario_id = "S04"
+description = "Rahul submits a hospital bill already claimed under another policy -> pending_human, duplicate_bill fraud flag"
+claim_id = "CLM-2026-018836"
+expected_final_state = "pending_human"
+expected_payable_amount = 15000
+expected_deny_rule_ids = []
+expected_min_allowed_entries = 1
+expected_fraud_flag_types = ["duplicate_bill"]
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 60.0
+
+[environment]
+build_timeout_sec = 600.0

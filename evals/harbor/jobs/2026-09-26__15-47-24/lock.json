@@ -1,0 +1,398 @@
+{
+    "schema_version": 3,
+    "created_at": "2026-09-26T10:17:25.003089Z",
+    "harbor": {
+        "version": "0.23.0",
+        "is_editable": false
+    },
+    "n_concurrent_trials": 1,
+    "retry": {
+        "max_retries": 0,
+        "exclude_exceptions": [
+            "ApiUsageLimitError",
+            "VerifierTimeoutError",
+            "AgentTimeoutError",
+            "AgentAuthenticationError",
+            "AgentSafetyRefusalError",
+            "RewardFileEmptyError",
+            "ModelNotFoundError",
+            "VerifierOutputParseError",
+            "RewardFileNotFoundError"
+        ],
+        "wait_multiplier": 1.0,
+        "min_wait_sec": 1.0,
+        "max_wait_sec": 60.0
+    },
+    "trials": [
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S05",
+                "type": "local",
+                "digest": "sha256:917310deefa1f7ff06ab5c6a00b4a0769436dd1c754058bc8d28c02ec51f6898",
+                "source": "tasks",
+                "path": "tasks/S05"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S02",
+                "type": "local",
+                "digest": "sha256:1cc68ab60accde82975dd82e1692eae31cfc275f1b6d1358ff2adadb8eb32840",
+                "source": "tasks",
+                "path": "tasks/S02"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S03",
+                "type": "local",
+                "digest": "sha256:ec6f04cdcc593fc9ff90d2d3dc44f50e95f305178e9ce550f1907966be5a5959",
+                "source": "tasks",
+                "path": "tasks/S03"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S04",
+                "type": "local",
+                "digest": "sha256:51ad35ff6c3ac3ddf9c0a720869cb290144680e9fb62ed149ff9277306c68ccd",
+                "source": "tasks",
+                "path": "tasks/S04"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S10",
+                "type": "local",
+                "digest": "sha256:08e7277bcad08b50936c84e061d35e119f05de95cca49dbf423ae8cb1d8be125",
+                "source": "tasks",
+                "path": "tasks/S10"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S01",
+                "type": "local",
+                "digest": "sha256:7a5f45702834ce11b32c027c95b2df82ca80c9b0216f6ae94cb0064329839406",
+                "source": "tasks",
+                "path": "tasks/S01"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S06",
+                "type": "local",
+                "digest": "sha256:20d01501e63f302236b6d2b63de3bdf3bad9f4d70f842a8430f0312084b93533",
+                "source": "tasks",
+                "path": "tasks/S06"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S08",
+                "type": "local",
+                "digest": "sha256:96733c7767efe053f4c1f7bb1b8f6eb4b1be21946df5303e0975854e03bf8e45",
+                "source": "tasks",
+                "path": "tasks/S08"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S09",
+                "type": "local",
+                "digest": "sha256:315c9b4d61520e060c9673d3e4d8577aeaab81e76f5084886ec19f6b91cfd137",
+                "source": "tasks",
+                "path": "tasks/S09"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        },
+        {
+            "schema_version": 2,
+            "task": {
+                "name": "S07",
+                "type": "local",
+                "digest": "sha256:0595905172ed3f019348aad6b68603ccda38c59c1ae856d015d342800a997ad4",
+                "source": "tasks",
+                "path": "tasks/S07"
+            },
+            "install_only": false,
+            "timeout_multiplier": 1.0,
+            "agent": {
+                "name": "adapter.adapter:ClaimGuardAgent",
+                "skills": [],
+                "resume_trajectory": false,
+                "extra_allowed_hosts": [],
+                "kwargs": {},
+                "mcp_servers": []
+            },
+            "bridge_inputs": {},
+            "skills": [],
+            "environment": {
+                "import_path": "environment_backend.local_host:LocalHostEnvironment",
+                "force_build": false,
+                "delete": true,
+                "cpu_enforcement_policy": "auto",
+                "memory_enforcement_policy": "auto",
+                "extra_docker_compose": [],
+                "kwargs": {},
+                "extra_allowed_hosts": []
+            },
+            "verifier": {
+                "import_path": "adapter.verifier:ClaimGuardVerifier",
+                "disable": false,
+                "environment_mode": "shared"
+            }
+        }
+    ]
+}

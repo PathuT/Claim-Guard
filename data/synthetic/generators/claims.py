@@ -153,12 +153,19 @@ def gen_scenario_claims() -> tuple[list[dict], list[dict]]:
         },
     )
 
-    # S03 — Priya's member, policy started 20 days ago, non-accident illness -> pending_human (waiting period)
+    # S03 — Rahul's member, policy started 20 days ago, non-accident illness -> pending_human (waiting period)
+    # docs/use-case.md §8 originally said "Priya's member", but the only
+    # 20-day-old policy in reference_data.py's fixed fixtures is Rahul's
+    # (KHA-SIL-007731) — Priya's is ~14 months old (S01's narrative). Moved
+    # onto Rahul's policy to match reference_data.py's actual intent (found
+    # and fixed in M5: as originally seeded on Priya's policy, this claim
+    # was outside the waiting period and paid automatically instead of
+    # stopping at pending_human, breaking M5's own "done when" condition).
     add(
         {
             "claim_id": "CLM-2026-018835",
-            "policy_number": "KHA-SIL-004512",
-            "member_id": "MEM-004512-01",
+            "policy_number": "KHA-SIL-007731",
+            "member_id": "MEM-007731-01",
             "hospital_id": "HOSP-001",
             "admission_date": date.today() - timedelta(days=2),
             "discharge_date": date.today() - timedelta(days=1),

@@ -1,0 +1,20 @@
+schema_version = "1.4"
+
+[metadata]
+scenario_id = "S02"
+description = "Priya, room ₹8,000/day x4 (Silver cap ₹5,000/day), ₹83,000 claimed -> pending_human (T3, >₹50k), ₹12,000 room excess deducted"
+claim_id = "CLM-2026-018834"
+expected_final_state = "pending_human"
+expected_payable_amount = 71000
+expected_deny_rule_ids = []
+expected_min_allowed_entries = 1
+expected_fraud_flag_types = []
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 60.0
+
+[environment]
+build_timeout_sec = 600.0

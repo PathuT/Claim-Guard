@@ -1,0 +1,19 @@
+{
+    "task": {
+        "path": "tasks/S01",
+        "source": "tasks"
+    },
+    "trial_name": "S01__EeLLQ3c",
+    "trials_dir": "jobs/2026-09-26__14-57-29",
+    "agent": {
+        "name": "adapter.adapter:ClaimGuardAgent"
+    },
+    "environment": {
+        "type": "docker",
+        "delete": false
+    },
+    "verifier": {
+        "import_path": "adapter.verifier:ClaimGuardVerifier"
+    },
+    "job_id": "ae6291c2-bdce-450f-a2db-7b0fce7af3b7"
+}

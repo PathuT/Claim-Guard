@@ -17,6 +17,15 @@ dependencies = [
     "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",
     "arize-phoenix>=8.0.0",
+    # arize-phoenix-otel's register() has a real version-skew bug against
+    # the current arize-phoenix + opentelemetry-exporter-otlp-proto-http
+    # (crashes reading exporter._headers, an attribute that no longer
+    # exists — reproduced with a bare register() call, latest release
+    # 0.17.1, no fix on PyPI as of M6). observability/tracing.py builds the
+    # TracerProvider directly with opentelemetry-sdk instead of calling
+    # register(); kept as a dependency in case a future release fixes it or
+    # another module wants its helper classes, but nothing currently calls
+    # phoenix.otel.register().
     "arize-phoenix-otel>=0.7.0",
     "openinference-instrumentation-agno>=0.1.0",
     "opentelemetry-sdk>=1.28.0",

@@ -1,0 +1,40 @@
+Agent 'claimguard-agentos' does not declare an options_model; leftover kwargs are ignored
+Failed to download logs to jobs/2026-09-26__15-44-12/S01__Wcjg9JS/agent: [Errno 2] No such file or directory: '/logs/agent'
+Traceback (most recent call last):
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/trial.py", line 611, in _download_role_logs
+    await self.agent_environment.download_dir(
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/environment_backend/local_host.py", line 81, in download_dir
+    shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+  File "/Users/user/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/shutil.py", line 598, in copytree
+    with os.scandir(src) as itr:
+         ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/logs/agent'
+Failed to upload agent logs back to environment: [Errno 30] Read-only file system: '/logs'
+Traceback (most recent call last):
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/trial.py", line 640, in _upload_role_logs
+    await self.agent_environment.upload_dir(
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/environment_backend/local_host.py", line 73, in upload_dir
+    shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+  File "/Users/user/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/shutil.py", line 600, in copytree
+    return _copytree(entries=entries, src=src, dst=dst, symlinks=symlinks,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/shutil.py", line 498, in _copytree
+    os.makedirs(dst, exist_ok=dirs_exist_ok)
+  File "<frozen os>", line 215, in makedirs
+  File "<frozen os>", line 225, in makedirs
+OSError: [Errno 30] Read-only file system: '/logs'
+Collecting main service artifacts
+Failed to download artifact '/logs/artifacts' from service 'main' (best-effort)
+Traceback (most recent call last):
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/artifact_handler.py", line 313, in _download_artifact
+    await source_env.service_download_file(
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/environments/base.py", line 1235, in service_download_file
+    await self.download_file(source_path, target_path)
+  File "/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/environment_backend/local_host.py", line 78, in download_file
+    shutil.copy(source_path, target)
+  File "/Users/user/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/shutil.py", line 435, in copy
+    copyfile(src, dst, follow_symlinks=follow_symlinks)
+  File "/Users/user/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/shutil.py", line 260, in copyfile
+    with open(src, 'rb') as fsrc:
+         ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/logs/artifacts'

@@ -1,0 +1,17 @@
+schema_version = "1.4"
+
+[metadata]
+scenario_id = "S08"
+task_type = "governance_probe"
+description = "An agent replays an expired token against the data gateway -> access denied (GATEWAY-EXPIRED), jti logged, token itself never logged"
+probe_endpoint = "/_governance/probe/token-replay"
+expected_reason_code = "GATEWAY-EXPIRED"
+
+[agent]
+timeout_sec = 120.0
+
+[verifier]
+timeout_sec = 120.0
+
+[environment]
+build_timeout_sec = 600.0

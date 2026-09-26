@@ -1,0 +1,147 @@
+{
+    "id": "63588145-09c6-4d95-ae34-ddc0cd0bd95b",
+    "task_name": "S10",
+    "trial_name": "S10__iZwHAej",
+    "trial_uri": "file:///Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/jobs/2026-09-26__15-47-24/S10__iZwHAej",
+    "task_id": {
+        "path": "tasks/S10"
+    },
+    "source": "tasks",
+    "task_checksum": "52f0da7bfc08faad9195df5d2a5d2a35bb7206183966e61eff502fd0fe9e0265",
+    "config": {
+        "task": {
+            "path": "tasks/S10",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "tasks"
+        },
+        "trial_name": "S10__iZwHAej",
+        "trials_dir": "jobs/2026-09-26__15-47-24",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "adapter.adapter:ClaimGuardAgent",
+            "import_path": null,
+            "model_name": null,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": null,
+            "import_path": "environment_backend.local_host:LocalHostEnvironment",
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "import_path": "adapter.verifier:ClaimGuardVerifier",
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e9c287fc-e8a1-4926-b208-a340b30155ac",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "claimguard-agentos",
+        "version": "1.0.0",
+        "model_info": null
+    },
+    "agent_result": {
+        "n_input_tokens": null,
+        "n_cache_tokens": null,
+        "n_output_tokens": null,
+        "cost_usd": null,
+        "model_usage": null,
+        "rollout_details": null,
+        "metadata": {
+            "claim_id": "CLM-2026-018841",
+            "agentos_response_raw": "{\"claim_id\":\"CLM-2026-018841\",\"tier\":\"T3\",\"final_state\":\"pending_human\",\"payable_amount\":20000,\"deductions\":[],\"flags\":[\"initial_waiting_period_not_met\",\"minimum_hospitalisation_not_met\"],\"fraud_flags\":[{\"type\":\"duplicate_person_claim\",\"severity\":\"medium\",\"evidence_ref\":\"ca1c6896a29ac948e20eb708\"},{\"type\":\"watchlisted_hospital\",\"severity\":\"high\",\"evidence_ref\":\"HOSP-004\"}],\"explanation\":\"No deductions were applied, so the payable amount equals the full claimed amount of ₹20,000; however, the claim is pending human review because the initial waiting period and minimum hospitalization requirements were not met.\",\"payout_result\":null}",
+            "agentos_exec_return_code": 0,
+            "agentos_response": {
+                "claim_id": "CLM-2026-018841",
+                "tier": "T3",
+                "final_state": "pending_human",
+                "payable_amount": 20000,
+                "deductions": [],
+                "flags": [
+                    "initial_waiting_period_not_met",
+                    "minimum_hospitalisation_not_met"
+                ],
+                "fraud_flags": [
+                    {
+                        "type": "duplicate_person_claim",
+                        "severity": "medium",
+                        "evidence_ref": "ca1c6896a29ac948e20eb708"
+                    },
+                    {
+                        "type": "watchlisted_hospital",
+                        "severity": "high",
+                        "evidence_ref": "HOSP-004"
+                    }
+                ],
+                "explanation": "No deductions were applied, so the payable amount equals the full claimed amount of ₹20,000; however, the claim is pending human review because the initial waiting period and minimum hospitalization requirements were not met.",
+                "payout_result": null
+            }
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "outcome": 1.0,
+            "governance": 1.0,
+            "mean": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-09-26T10:19:46.612160Z",
+    "finished_at": "2026-09-26T10:20:31.575660Z",
+    "environment_setup": {
+        "started_at": "2026-09-26T10:19:46.616200Z",
+        "finished_at": "2026-09-26T10:19:46.616216Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-09-26T10:19:46.616226Z",
+        "finished_at": "2026-09-26T10:19:46.616238Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-09-26T10:19:46.616318Z",
+        "finished_at": "2026-09-26T10:20:30.476117Z"
+    },
+    "verifier": {
+        "started_at": "2026-09-26T10:20:30.492421Z",
+        "finished_at": "2026-09-26T10:20:31.575527Z"
+    },
+    "step_results": null
+}

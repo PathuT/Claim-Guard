@@ -1,0 +1,100 @@
+{
+    "id": "f498bd00-9ff2-4389-8334-8db4ff01290d",
+    "task_name": "S01",
+    "trial_name": "S01__EeLLQ3c",
+    "trial_uri": "file:///Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/jobs/2026-09-26__14-57-29/S01__EeLLQ3c",
+    "task_id": {
+        "path": "tasks/S01"
+    },
+    "source": "tasks",
+    "task_checksum": "211dc5cd41b64fc0dd92d644e551705ca2174dcd19bde8dceb22582e0fdc2396",
+    "config": {
+        "task": {
+            "path": "tasks/S01",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "tasks"
+        },
+        "trial_name": "S01__EeLLQ3c",
+        "trials_dir": "jobs/2026-09-26__14-57-29",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "adapter.adapter:ClaimGuardAgent",
+            "import_path": null,
+            "model_name": null,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "import_path": "adapter.verifier:ClaimGuardVerifier",
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "ae6291c2-bdce-450f-a2db-7b0fce7af3b7",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "claimguard-agentos",
+        "version": "1.0.0",
+        "model_info": null
+    },
+    "agent_result": null,
+    "verifier_result": null,
+    "verifier_environment_mode": "shared",
+    "exception_info": {
+        "exception_type": "RuntimeError",
+        "exception_message": "Docker compose command failed for environment S01. Command: docker compose --project-name s01__eellq3c__env --project-directory /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/tasks/S01/environment -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmpjmshiu1x/S01__EeLLQ3c__env-docker-compose-resources.json -f /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/environments/docker/docker-compose-build.yaml -f /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/tasks/S01/environment/docker-compose.yaml -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmpd0d8d0p0/docker-compose-environment.json -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmpyijq7ypj/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout: time=\"2026-09-26T14:58:02+05:30\" level=warning msg=\"buildx Docker CLI plugin not found: falling back to the classic builder. BuildKit-only build features (multi-arch, secrets, ssh, additional contexts, ...) will not be available\"\n Image s01__eellq3c__env-main Building \n Image s01__eellq3c__env-main Building \nSending build context to Docker daemon  1.819kB\r\r\nStep 1/4 : FROM python:3.12-slim\n ---> f77ac9e44ae9\nStep 2/4 : RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*\n ---> Using cache\n ---> e5ab73514988\nStep 3/4 : CMD [\"sleep\", \"infinity\"]\n ---> Using cache\n ---> e3efeb94eeed\nStep 4/4 : LABEL com.docker.compose.image.builder=classic\n ---> Using cache\n ---> 09250143bc63\nSuccessfully built 09250143bc63\nSuccessfully tagged s01__eellq3c__env-main:latest\n Image s01__eellq3c__env-main Built \n Image s01__eellq3c__env-main Built \n Network s01__eellq3c__env_default Creating \n Network s01__eellq3c__env_default Creating \n Network s01__eellq3c__env_default Created \n Network s01__eellq3c__env_default Created \n Container s01__eellq3c__env-postgres-1 Creating \n Container s01__eellq3c__env-postgres-1 Created \n Container s01__eellq3c__env-backend-1 Creating \n Container s01__eellq3c__env-backend-1 Created \n Container s01__eellq3c__env-main-1 Creating \n Container s01__eellq3c__env-main-1 Created \n Container s01__eellq3c__env-postgres-1 Starting \n Container s01__eellq3c__env-postgres-1 Started \n Container s01__eellq3c__env-postgres-1 Waiting \n Container s01__eellq3c__env-postgres-1 Healthy \n Container s01__eellq3c__env-backend-1 Starting \n Container s01__eellq3c__env-backend-1 Started \n Container s01__eellq3c__env-backend-1 Waiting \n Container s01__eellq3c__env-backend-1 Error dependency backend failed to start\ndependency failed to start: container s01__eellq3c__env-backend-1 exited (1)\n. Stderr: None. ",
+        "exception_traceback": "Traceback (most recent call last):\n  File \"/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/trial.py\", line 415, in run\n    await self._prepare()\n  File \"/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/trial.py\", line 453, in _prepare\n    await self._setup_agent_environment()\n  File \"/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/trial.py\", line 1542, in _setup_agent_environment\n    await self._start_agent_environment()\n  File \"/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/trial/trial.py\", line 1548, in _start_agent_environment\n    await asyncio.wait_for(\n  File \"/Users/user/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/asyncio/tasks.py\", line 520, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/environments/docker/docker.py\", line 1007, in start\n    await self._run_docker_compose_command([\"up\", *runtime.up_args])\n  File \"/Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/environments/docker/docker.py\", line 704, in _run_docker_compose_command\n    raise RuntimeError(\nRuntimeError: Docker compose command failed for environment S01. Command: docker compose --project-name s01__eellq3c__env --project-directory /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/tasks/S01/environment -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmpjmshiu1x/S01__EeLLQ3c__env-docker-compose-resources.json -f /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/environments/docker/docker-compose-build.yaml -f /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/tasks/S01/environment/docker-compose.yaml -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmpd0d8d0p0/docker-compose-environment.json -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmpyijq7ypj/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout: time=\"2026-09-26T14:58:02+05:30\" level=warning msg=\"buildx Docker CLI plugin not found: falling back to the classic builder. BuildKit-only build features (multi-arch, secrets, ssh, additional contexts, ...) will not be available\"\n Image s01__eellq3c__env-main Building \n Image s01__eellq3c__env-main Building \nSending build context to Docker daemon  1.819kB\r\r\nStep 1/4 : FROM python:3.12-slim\n ---> f77ac9e44ae9\nStep 2/4 : RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*\n ---> Using cache\n ---> e5ab73514988\nStep 3/4 : CMD [\"sleep\", \"infinity\"]\n ---> Using cache\n ---> e3efeb94eeed\nStep 4/4 : LABEL com.docker.compose.image.builder=classic\n ---> Using cache\n ---> 09250143bc63\nSuccessfully built 09250143bc63\nSuccessfully tagged s01__eellq3c__env-main:latest\n Image s01__eellq3c__env-main Built \n Image s01__eellq3c__env-main Built \n Network s01__eellq3c__env_default Creating \n Network s01__eellq3c__env_default Creating \n Network s01__eellq3c__env_default Created \n Network s01__eellq3c__env_default Created \n Container s01__eellq3c__env-postgres-1 Creating \n Container s01__eellq3c__env-postgres-1 Created \n Container s01__eellq3c__env-backend-1 Creating \n Container s01__eellq3c__env-backend-1 Created \n Container s01__eellq3c__env-main-1 Creating \n Container s01__eellq3c__env-main-1 Created \n Container s01__eellq3c__env-postgres-1 Starting \n Container s01__eellq3c__env-postgres-1 Started \n Container s01__eellq3c__env-postgres-1 Waiting \n Container s01__eellq3c__env-postgres-1 Healthy \n Container s01__eellq3c__env-backend-1 Starting \n Container s01__eellq3c__env-backend-1 Started \n Container s01__eellq3c__env-backend-1 Waiting \n Container s01__eellq3c__env-backend-1 Error dependency backend failed to start\ndependency failed to start: container s01__eellq3c__env-backend-1 exited (1)\n. Stderr: None. \n",
+        "occurred_at": "2026-09-26T09:28:30.496305Z"
+    },
+    "started_at": "2026-09-26T09:27:30.141151Z",
+    "finished_at": "2026-09-26T09:28:31.646835Z",
+    "environment_setup": {
+        "started_at": "2026-09-26T09:27:30.225993Z",
+        "finished_at": "2026-09-26T09:28:30.475011Z"
+    },
+    "agent_setup": null,
+    "agent_execution": null,
+    "verifier": null,
+    "step_results": null
+}

@@ -1,0 +1,43 @@
+Agent 'claimguard-agentos' does not declare an options_model; leftover kwargs are ignored
+Skipping image OS validation for hb__970ba2ce8489ab9d3dc10ba86fab6d33: docker inspect returned 1
+Trial S01__4WmvrE2 failed: Docker compose command failed for environment S01. Command: docker compose --project-name s01__4wmvre2__env --project-directory /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/tasks/S01/environment -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmph2b0pfp9/S01__4WmvrE2__env-docker-compose-resources.json -f /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/.venv/lib/python3.12/site-packages/harbor/environments/docker/docker-compose-build.yaml -f /Users/user/Desktop/Pathu-dev/Claim-Guard/Claim-Guard/evals/harbor/tasks/S01/environment/docker-compose.yaml -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmp3d24aesg/docker-compose-environment.json -f /private/var/folders/l4/hxcz47qj20n9fcf1zwg4yxfw0000gp/T/tmp6dzm2c6k/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout: time="2026-09-26T15:35:09+05:30" level=warning msg="buildx Docker CLI plugin not found: falling back to the classic builder. BuildKit-only build features (multi-arch, secrets, ssh, additional contexts, ...) will not be available"
+ Image s01__4wmvre2__env-main Building 
+ Image s01__4wmvre2__env-main Building 
+Sending build context to Docker daemon  1.819kB
+Step 1/4 : FROM python:3.12-slim
+ ---> f77ac9e44ae9
+Step 2/4 : RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> e5ab73514988
+Step 3/4 : CMD ["sleep", "infinity"]
+ ---> Using cache
+ ---> e3efeb94eeed
+Step 4/4 : LABEL com.docker.compose.image.builder=classic
+ ---> Using cache
+ ---> 09250143bc63
+Successfully built 09250143bc63
+Successfully tagged s01__4wmvre2__env-main:latest
+ Image s01__4wmvre2__env-main Built 
+ Image s01__4wmvre2__env-main Built 
+ Network s01__4wmvre2__env_default Creating 
+ Network s01__4wmvre2__env_default Creating 
+ Network s01__4wmvre2__env_default Created 
+ Network s01__4wmvre2__env_default Created 
+ Container s01__4wmvre2__env-postgres-1 Creating 
+ Container s01__4wmvre2__env-postgres-1 Created 
+ Container s01__4wmvre2__env-backend-1 Creating 
+ Container s01__4wmvre2__env-backend-1 Created 
+ Container s01__4wmvre2__env-main-1 Creating 
+ Container s01__4wmvre2__env-main-1 Created 
+ Container s01__4wmvre2__env-postgres-1 Starting 
+ Container s01__4wmvre2__env-postgres-1 Started 
+ Container s01__4wmvre2__env-postgres-1 Waiting 
+ Container s01__4wmvre2__env-postgres-1 Healthy 
+ Container s01__4wmvre2__env-backend-1 Starting 
+ Container s01__4wmvre2__env-backend-1 Started 
+ Container s01__4wmvre2__env-backend-1 Waiting 
+ Container s01__4wmvre2__env-backend-1 Error dependency backend failed to start
+dependency failed to start: container s01__4wmvre2__env-backend-1 exited (1)
+. Stderr: None. 
+Collecting main service artifacts
+Not retrying trial because the maximum number of retries has been reached

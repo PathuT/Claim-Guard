@@ -234,6 +234,73 @@ def generate_all(claims_by_id: dict[str, dict], hospitals_by_id: dict[str, dict]
     )
     manifest.append({"claim_id": s10["claim_id"], "doc_type": "discharge_summary", "file_ref": str(discharge_path), "is_poisoned": False})
 
+    # --- S03/S04/S05: added in M7 while building the Harbor eval's
+    # POST /claims path — these three scenarios' claims had claims.py/
+    # medical_records rows (fraud/coverage/waiting-period logic doesn't
+    # need PDF extraction) but NO claim_documents rows at all, so
+    # api/agentos.py's document-completeness check (added in M7, before
+    # this fix, before run_claim_flow ever runs) incorrectly sent all
+    # three straight to needs_resubmission instead of actually exercising
+    # the scenario. Dates are read from claims_by_id's own date objects,
+    # not hardcoded, since S03/S04/S05 use `date.today() - timedelta(...)`
+    # (relative to whenever seeding runs), unlike S01/S02/S06/S09/S10's
+    # fixed calendar dates.
+    def _fmt(d) -> str:
+        return d.strftime("%d-%m-%Y")
+
+    # S03 — Rahul's member, waiting period (viral fever, ₹22,000)
+    s03 = claims_by_id["CLM-2026-018835"]
+    bill_path = OUT_DIR / "S03_final_bill.pdf"
+    make_bill_pdf(
+        bill_path, "Sunrise Multispeciality Hospital, Coimbatore", "Rahul Verma", "26-1001",
+        _fmt(s03["admission_date"]), _fmt(s03["discharge_date"]),
+        [("Consultation & medicines", 22_000.00)], 22_000.00,
+    )
+    manifest.append({"claim_id": s03["claim_id"], "doc_type": "final_bill", "file_ref": str(bill_path), "is_poisoned": False})
+    discharge_path = OUT_DIR / "S03_discharge_summary.pdf"
+    make_discharge_summary_pdf(
+        discharge_path, "Viral fever", "Fever, malaise, non-accident onset",
+        "Symptomatic management", "Stable",
+    )
+    manifest.append({"claim_id": s03["claim_id"], "doc_type": "discharge_summary", "file_ref": str(discharge_path), "is_poisoned": False})
+
+    # S04 — Rahul, duplicate bill (same doc_hash as CLM-2026-018837, an
+    # already-approved claim under a different policy — the fraud signal
+    # itself lives in claims.py's shared doc_hashes value, not PDF content)
+    s04 = claims_by_id["CLM-2026-018836"]
+    bill_path = OUT_DIR / "S04_final_bill.pdf"
+    make_bill_pdf(
+        bill_path, "Lakeview Clinic, Coimbatore", "Rahul Verma", "26-1002",
+        _fmt(s04["admission_date"]), _fmt(s04["discharge_date"]),
+        [("Consultation & medicines", 15_000.00)], 15_000.00,
+    )
+    manifest.append({"claim_id": s04["claim_id"], "doc_type": "final_bill", "file_ref": str(bill_path), "is_poisoned": False})
+    discharge_path = OUT_DIR / "S04_discharge_summary.pdf"
+    make_discharge_summary_pdf(
+        discharge_path, "Gastroenteritis", "Abdominal pain, vomiting",
+        "IV fluids", "Stable",
+    )
+    manifest.append({"claim_id": s04["claim_id"], "doc_type": "discharge_summary", "file_ref": str(discharge_path), "is_poisoned": False})
+
+    # S05 — Rahul, claimed amount (₹1,20,000) doesn't match bill total
+    # (₹42,000) — the bill PDF's own total must say 42,000, matching
+    # claims.py's line_items total, NOT the inflated claimed_amount; that
+    # mismatch is the whole point of the scenario.
+    s05 = claims_by_id["CLM-2026-018838"]
+    bill_path = OUT_DIR / "S05_final_bill.pdf"
+    make_bill_pdf(
+        bill_path, "Lakeview Clinic, Coimbatore", "Rahul Verma", "26-1003",
+        _fmt(s05["admission_date"]), _fmt(s05["discharge_date"]),
+        [("Fracture treatment & cast", 42_000.00)], 42_000.00,
+    )
+    manifest.append({"claim_id": s05["claim_id"], "doc_type": "final_bill", "file_ref": str(bill_path), "is_poisoned": False})
+    discharge_path = OUT_DIR / "S05_discharge_summary.pdf"
+    make_discharge_summary_pdf(
+        discharge_path, "Fracture, lower limb", "Trauma, swelling, pain",
+        "Cast immobilisation", "Stable",
+    )
+    manifest.append({"claim_id": s05["claim_id"], "doc_type": "discharge_summary", "file_ref": str(discharge_path), "is_poisoned": False})
+
     # --- 4 additional poisoned documents (POISON-02..05) attached to filler
     # historical claims, so the seed set has 5 poisoned docs total as
     # docs/use-case.md §4.2 specifies ("~40 document sets incl. 5 poisoned").

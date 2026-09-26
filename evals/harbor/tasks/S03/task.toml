@@ -1,0 +1,19 @@
+schema_version = "1.4"
+
+[metadata]
+scenario_id = "S03"
+description = "Rahul's member, policy started 20 days ago, non-accident illness -> pending_human (waiting period)"
+claim_id = "CLM-2026-018835"
+expected_final_state = "pending_human"
+expected_deny_rule_ids = []
+expected_min_allowed_entries = 1
+expected_fraud_flag_types = []
+
+[agent]
+timeout_sec = 300.0
+
+[verifier]
+timeout_sec = 60.0
+
+[environment]
+build_timeout_sec = 600.0
