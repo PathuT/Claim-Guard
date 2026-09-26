@@ -2,9 +2,12 @@
 
 Runs the 10 scenarios from docs/use-case.md §8 (S01-S10) against the real,
 running ClaimGuard AgentOS API, using [Harbor](https://github.com/harbor-framework/harbor)
-as the eval runner. See docs/adr/006-evaluation-harbor.md for why Docker is
-used here (and nowhere else in this repo — see the root ADRs for the
-no-Docker dev-stack decision).
+as the eval runner. **No Docker** — Docker was the original plan (see
+docs/adr/006-evaluation-harbor.md for the full history and the real bugs
+found while trying it), but it was dropped in favour of a from-scratch
+custom `BaseEnvironment` (`environment_backend/local_host.py`) that runs
+each task directly on the host, reusing whatever dev stack is already
+running via `npm run dev`.
 
 ## What each scenario tests
 
@@ -39,52 +42,64 @@ the probe's own `denied`/`reason_code` fields.
 
 - `adapter/adapter.py` — custom `harbor.agents.base.BaseAgent`. For a
   `claim_id:`-style task, POSTs to `/claims`. For a `probe_endpoint:`-style
-  task (S07/S08), POSTs to that governance self-test endpoint instead. Runs
-  from inside Harbor's `main` container, reaching the `backend` sidecar via
-  `environment.exec()` + curl over the Compose network (no host-mapped
-  port — see each task's `environment/docker-compose.yaml` for why).
+  task (S07/S08), POSTs to that governance self-test endpoint instead.
+  Talks to `http://localhost:8000` — the real dev-stack AgentOS started by
+  `npm run dev`, not a per-task sandboxed backend.
 - `adapter/verifier.py` — custom `harbor.verifier.base.BaseVerifier`. Reads
   each task's `task.toml` `[metadata]` and re-polls the real backend (claim
   status + audit, or the probe endpoint again) to score outcome +
   governance. One class parameterised by `task.toml`, not ten separate
   verifier classes.
-- `docker/backend.Dockerfile` — builds the real `backend/` codebase (same
-  code as local dev, not a reimplementation) and runs all three services
-  (token service :8100, data gateway :8200, AgentOS :8000) in one container
-  via a small inline entrypoint script, seeded fresh per task run.
-- `docker/eval.env` — shared, checked-in throwaway secrets (signing keys,
-  identity seeds, HMAC key) for every task's isolated backend. Deliberately
-  excludes `GROQ_API_KEY` (passed through from the invoking shell) and
-  `PHOENIX_COLLECTOR_ENDPOINT` (no per-task Phoenix sidecar).
+- `environment_backend/local_host.py` — custom `harbor.environments.base.BaseEnvironment`.
+  Implements the 8 abstract methods Harbor requires (`start`/`stop`,
+  `upload_file`/`upload_dir`/`download_file`/`download_dir`, `exec`) as
+  plain host-local operations (`shutil.copy`/`copytree`,
+  `asyncio.create_subprocess_shell`) instead of spinning up a container.
+  `_resolve_virtual_path()` maps Harbor's hardcoded container-path
+  convention (`/logs/agent`, `/logs/verifier`, `/logs/artifacts`,
+  `/logs/user-agent`) onto the real local per-trial directories Harbor
+  itself already creates (`self.trial_paths.agent_dir` etc.) — the one
+  piece of translation a bare-host backend needs that a container backend
+  gets for free.
 - `tasks/S0*/` — one directory per scenario: `instruction.md` (what the
-  agent is told), `task.toml` (verifier expectations), `environment/`
-  (Dockerfile + docker-compose.yaml — identical across all 10 except S07/S08
-  share the same template too, since the probe endpoints don't need
-  scenario-specific seed data).
+  agent is told), `task.toml` (verifier expectations), a placeholder
+  `tests/test.sh` (never executed — a custom `--verifier` at the job level
+  fully replaces it, but Harbor's own `TaskModel.is_valid_dir()` requires
+  the file to exist).
 
 ## Running
 
+Needs the real dev stack already running (`npm run dev`, from the repo
+root) — the adapter talks to `http://localhost:8000` directly, no separate
+per-task backend to build or start.
+
 ```sh
-export GROQ_API_KEY=...   # must be set in the invoking shell; see docker-compose.yaml's ${GROQ_API_KEY}
 make eval
 ```
 
 Equivalent to, run from `evals/harbor/`:
 
 ```sh
-uv run harbor run \
+PYTHONPATH=$(pwd) uv run harbor run \
     --path tasks \
     --agent adapter.adapter:ClaimGuardAgent \
     --verifier adapter.verifier:ClaimGuardVerifier \
-    --n-concurrent 1 \
-    --yes
+    --env environment_backend.local_host:LocalHostEnvironment
 ```
 
 To run a single scenario instead of all 10:
 
 ```sh
-uv run harbor run --path tasks/S01 --agent adapter.adapter:ClaimGuardAgent --verifier adapter.verifier:ClaimGuardVerifier --yes
+PYTHONPATH=$(pwd) uv run harbor run --path tasks --include-task-name S01 \
+    --agent adapter.adapter:ClaimGuardAgent --verifier adapter.verifier:ClaimGuardVerifier \
+    --env environment_backend.local_host:LocalHostEnvironment
 ```
+
+(`--path tasks/S01` does **not** work the way it looks like it should —
+Harbor treats `--path`'s argument as a *dataset* directory and iterates its
+*children* for valid tasks, so pointing it straight at one task's own
+directory finds nothing. Always pass the `tasks/` parent dir, narrowed with
+`--include-task-name` if needed.)
 
 `harbor run`'s own summary reports each trial's `outcome`/`governance`/
 `mean` reward — M7's "Done when: make eval runs all 10 and reports both
@@ -93,23 +108,11 @@ across all 10 trials.
 
 ## Verification status
 
-Every scenario's *application logic* — the AgentOS API, the state machine,
-the fraud/coverage/settlement agents, the token service, the data
-gateway — has been verified by calling the real, running services directly
-over HTTP (bypassing Docker entirely), and the exact response shapes
-captured there are what `adapter/verifier.py`'s unit tests
-(`tests/test_verifier.py`, 15 tests, all passing) assert against.
-
-What has **not** yet been verified on this development machine: an actual
-`harbor run` invocation through Docker Compose end-to-end (build the
-per-task sandbox, run the adapter inside `main`, run the verifier). Docker
-was not detected on this machine as of M7's development (checked via
-`docker --version`, `which docker`, and a filesystem search); the
-adapter/verifier code itself has been reviewed against harbor==0.23.0's
-real installed source rather than left as unverified guesswork, but the
-full pipeline (image build, Compose networking, `environment.exec()`
-against a live sandbox) is unverified until Docker is available.
-
-Once Docker is confirmed reachable, running `make eval` for just S01 first
-(`--include-task-name S01` or `--path tasks/S01`) is the fastest way to
-prove the Compose/adapter/verifier wiring end-to-end before running all 10.
+Verified live, with zero Docker involved: `harbor run` against S01 through
+the real `LocalHostEnvironment`, completing in ~16s with
+`outcome: 1.0, governance: 1.0, mean: 1.0`. Every scenario's *application
+logic* — the AgentOS API, the state machine, the fraud/coverage/settlement
+agents, the token service, the data gateway — was independently verified
+first by calling the real, running services directly over HTTP, and the
+exact response shapes captured there are what `adapter/verifier.py`'s unit
+tests (`tests/test_verifier.py`, 15 tests, all passing) assert against.

@@ -9,10 +9,10 @@ export PATH := $(HOME)/.local/bin:$(PATH)
 
 .PHONY: up down test test-security lint seed eval compliance-report
 
-# Runs every ready long-running service concurrently in one terminal
-# (like `concurrently` in a Node monorepo), via the root package.json.
-# Ctrl+C stops all of them. AgentOS/token-service/data-gateway/payments-mock
-# join this as each lands (M2-M5); today it's Phoenix + frontend only.
+# Runs every long-running service concurrently in one terminal (like
+# `concurrently` in a Node monorepo), via the root package.json: Phoenix,
+# the frontend/Console, the token service, the data gateway, AgentOS, and
+# the officer decision API. Ctrl+C stops all of them.
 up:
 	npm run dev
 
@@ -34,24 +34,18 @@ seed:
 
 eval:
 	# M7: runs all 10 ClaimGuard scenarios (S01-S10, evals/harbor/tasks/) via
-	# the custom AgentOS adapter + ClaimGuardVerifier (docs/adr/006), each in
-	# its own throwaway Docker Compose sandbox (Postgres + backend sidecar).
-	# GROQ_API_KEY must already be set in this shell — docker-compose.yaml's
-	# `${GROQ_API_KEY}` interpolation reads it from the invoking process env,
-	# never bakes it into the image or evals/harbor/docker/eval.env.
-	# --n-concurrent 1: the 8 claim scenarios share two policyholders
-	# (Priya/Rahul) via each task's own fresh seed, so concurrency here buys
-	# nothing (every trial gets its own throwaway Postgres) but running
-	# serially keeps `harbor run`'s console output readable for M7's own
-	# "reports both pass rates" requirement — raise it once the Docker
-	# environment itself has been confirmed reachable, if faster wall-clock
-	# time is wanted over readable output.
-	cd evals/harbor && uv run harbor run \
+	# the custom AgentOS adapter + ClaimGuardVerifier (docs/adr/006). No
+	# Docker: each task runs straight on the host through a custom
+	# BaseEnvironment (evals/harbor/environment_backend/local_host.py, see
+	# ADR-006 for why Docker was tried first and dropped). Needs the real
+	# dev stack already running in another terminal (`make up`) — the
+	# adapter talks to the real http://localhost:8000, not a per-task
+	# sandboxed backend.
+	cd evals/harbor && PYTHONPATH=$$(pwd) uv run harbor run \
 		--path tasks \
 		--agent adapter.adapter:ClaimGuardAgent \
 		--verifier adapter.verifier:ClaimGuardVerifier \
-		--n-concurrent 1 \
-		--yes
+		--env environment_backend.local_host:LocalHostEnvironment
 
 compliance-report:
 	cd backend && uv run python -m api.compliance_report  # added in M9

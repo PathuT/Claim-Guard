@@ -14,7 +14,7 @@ built against.
 
 ---
 
-## Status: M0-M6 done ✅ (M7 next)
+## Status: M0-M8 done ✅ (M9 next)
 
 **M0 — Skeleton:** repo layout, `uv` backend (Agno 3.0), Next.js frontend, Phoenix +
 OpenInference wired and verified with a real traced agent call.
@@ -175,8 +175,45 @@ attribute hygiene), and documented Phoenix views.
   denials by rule, token issuance by agent, latency per agent, cost per
   claim.
 
-Everything past this point (evals, the console, tiers/scoping) is **not
-built yet** — see [`docs/plan.md`](docs/plan.md) M7 onward.
+**M7 — Harbor evals:** 10 scenario tasks (S01-S10, `evals/harbor/tasks/`), each with
+its own `instruction.md`/`task.toml`, a custom `BaseAgent` adapter that calls the real
+AgentOS API, and a custom `BaseVerifier` that checks the real claim outcome/audit
+trail against the scenario's expectations.
+- **No Docker.** Harbor's own environment abstraction defaults to spinning up a
+  container per task, but this project runs every task straight on the host instead,
+  via a from-scratch `BaseEnvironment` subclass
+  (`evals/harbor/environment_backend/local_host.py`) that maps Harbor's hardcoded
+  container-path conventions (`/logs/agent`, `/logs/verifier`, ...) onto the real local
+  per-trial directories Harbor itself already creates. Selected with
+  `--env environment_backend.local_host:LocalHostEnvironment`.
+- Verified live: `harbor run` against the real dev stack (`npm run dev` already
+  running), zero Docker daemon involved, real outcome/governance scores.
+
+**M8 — Console (Next.js frontend):** four real pages — Policyholder, Officer,
+Compliance, and an Agent Pipeline view — plus a full design-system pass (OKLCH
+tokens, light/dark mode) matching a specified reference look exactly.
+- **Real document upload is the actual entrypoint**, not a pre-seeded `claim_id`
+  replay: `POST /claims/new` (`backend/api/claim_intake.py`) takes two real PDF
+  files from the browser, extracts their text with real `pypdf` (the same
+  extraction the seed generator itself uses, applied to genuinely unseen files),
+  hashes them, and creates a real `Claim` row — then the Console automatically
+  submits that claim for assessment through the unchanged 5-agent pipeline.
+  Verified end-to-end with freshly generated, non-seed PDFs.
+- The demo-scenario buttons on the Policyholder page and the quick-load chips on
+  the Pipeline page both replay real, already-seeded S01-S10 claims for anyone who
+  wants to see a specific agent/governance behaviour without uploading their own
+  documents.
+- Pipeline page shows all 5 agents' real stored outputs for one claim side by side
+  (intake summary, medical finding, coverage deductions, fraud flags, payout
+  state), with an `AuditBadge` that's honest about which agents make governed,
+  audited tool calls (supervisor, payout) versus which do real work that isn't
+  itself gateway-audited (intake, medical reviewer, coverage, fraud).
+- Officer page includes the audited break-glass discharge-summary flow
+  (security-matrix.md §9) as a distinct, separately-logged path from the normal
+  medical_reviewer-only restriction.
+
+Everything past this point (tiers/scoping polish, remaining M9 work) is
+**not built yet** — see [`docs/plan.md`](docs/plan.md) M9 onward.
 
 ---
 
@@ -194,9 +231,11 @@ built yet** — see [`docs/plan.md`](docs/plan.md) M7 onward.
 | Frontend | Next.js (App Router, TypeScript) |
 | LLM provider | Model-agnostic via Agno; this repo defaults to Groq (`MODEL_PROVIDER=groq`), Gemini and Anthropic also supported |
 
-**No Docker.** Every service runs as a native local process (see
-[`docs/adr/`](docs/adr/) for the reasoning if this changes). Postgres is hosted
-(Supabase) rather than run locally.
+**No Docker — including for evals.** Every service runs as a native local process,
+and Harbor's own eval runs do too, via a custom `BaseEnvironment` that runs directly
+on the host instead of in a container (see [`docs/adr/006-evaluation-harbor.md`](docs/adr/006-evaluation-harbor.md)
+for the full history — Docker was tried first and deliberately dropped). Postgres is
+hosted (Supabase) rather than run locally.
 
 ---
 
@@ -216,6 +255,7 @@ cp .env.example .env        # then fill in your DATABASE_URL and an LLM API key
 npm install                 # root: installs `concurrently` for dev orchestration
 cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
+cd evals/harbor && uv sync && cd ../..   # only needed for `make eval` — separate uv project, M7
 ```
 
 ### Run
@@ -225,8 +265,14 @@ make seed   # populates Supabase with synthetic data (idempotent, safe to re-run
 npm run dev # or `make up` — same thing
 ```
 
-Starts Phoenix (`:6006`), the frontend (`:3005`), the token service (`:8100`), and
-the data gateway (`:8200`) together in one terminal.
+Starts Phoenix (`:6006`), the frontend/Console (`:3005`), the token service
+(`:8100`), the data gateway (`:8200`), AgentOS (`:8000`), and the officer decision
+API (`:8400`) together in one terminal.
+
+Open `http://localhost:3005` for the Console — start at `/policyholder` to submit
+a real claim (upload your own PDFs, or use one of the demo-scenario buttons to
+replay a seeded S01-S10 case), then follow it through `/pipeline`, `/officer`
+(for claims that stop at human review), and `/compliance`.
 
 To fire the smoke-test agent and confirm a trace appears in Phoenix, in a second
 terminal (with `npm run dev` still running):
@@ -242,6 +288,18 @@ Run the security test suite (no live services needed):
 ```bash
 make test-security
 ```
+
+Run the Harbor eval suite (needs `npm run dev`'s stack already running — no Docker):
+
+```bash
+cd evals/harbor
+PYTHONPATH=$(pwd) uv run harbor run --path tasks --include-task-name S01 \
+  --agent adapter.adapter:ClaimGuardAgent --verifier adapter.verifier:ClaimGuardVerifier \
+  --env environment_backend.local_host:LocalHostEnvironment
+```
+
+Swap `--include-task-name S01` for any of `S02`-`S10`, or drop the flag to run the
+whole suite.
 
 ---
 
