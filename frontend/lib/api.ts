@@ -159,6 +159,59 @@ export function submitClaim(claimId: string): Promise<SubmitClaimResult> {
   });
 }
 
+export interface NewClaimFields {
+  policyNumber: string;
+  memberId: string;
+  hospitalId: string;
+  admissionDate: string;
+  dischargeDate: string;
+  statedIllness: string;
+  claimedAmount: number;
+  finalBill: File;
+  dischargeSummary: File;
+}
+
+export interface NewClaimResult {
+  claim_id: string;
+  status: string;
+  missing_documents: string[];
+}
+
+/** The real upload entrypoint (backend/api/claim_intake.py) — a
+ * policyholder attaches two actual PDF files, extracted by real pypdf text
+ * extraction, not a pre-seeded claim_id. multipart/form-data, so this one
+ * call does NOT go through the shared `request()` helper's JSON
+ * content-type default. */
+export async function submitNewClaim(fields: NewClaimFields): Promise<NewClaimResult> {
+  const form = new FormData();
+  form.set("policy_number", fields.policyNumber);
+  form.set("member_id", fields.memberId);
+  form.set("hospital_id", fields.hospitalId);
+  form.set("admission_date", fields.admissionDate);
+  form.set("discharge_date", fields.dischargeDate);
+  form.set("stated_illness", fields.statedIllness);
+  form.set("claimed_amount", String(fields.claimedAmount));
+  form.set("final_bill", fields.finalBill);
+  form.set("discharge_summary", fields.dischargeSummary);
+
+  let response: Response;
+  try {
+    response = await fetch(`${AGENTOS_URL}/claims/new`, { method: "POST", body: form });
+  } catch {
+    throw new ApiError(`Could not reach ${AGENTOS_URL} — is the backend running?`, 0);
+  }
+  if (!response.ok) {
+    let detail: { reason_code?: string; message?: string } = {};
+    try {
+      detail = (await response.json())?.detail ?? {};
+    } catch {
+      // non-JSON error body
+    }
+    throw new ApiError(detail.message ?? response.statusText, response.status, detail.reason_code);
+  }
+  return response.json() as Promise<NewClaimResult>;
+}
+
 export function getClaimStatus(claimId: string): Promise<ClaimStatus> {
   return request(`${AGENTOS_URL}/claims/${encodeURIComponent(claimId)}`);
 }

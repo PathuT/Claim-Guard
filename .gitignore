@@ -36,5 +36,12 @@ data/uploads/*
 
 # AGT FlightRecorder audit trail (governance/flight_recorder.py) — local
 # state, not source; grows with every tool call once agents exist (M4+).
+# SQLite's own WAL-mode sidecar files (-shm/-wal) are equally runtime state,
+# not source — they were previously untracked only for the base .db file,
+# so every agent run kept re-dirtying the working tree with binary diffs.
 flight_recorder.db
+flight_recorder.db-shm
+flight_recorder.db-wal
 backend/flight_recorder.db
+backend/flight_recorder.db-shm
+backend/flight_recorder.db-wal

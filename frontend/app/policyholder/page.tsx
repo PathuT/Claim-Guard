@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { formatInr, humanizeStatus, statusStyle } from "@/lib/format";
 import { DEMO_SCENARIOS } from "@/lib/demoScenarios";
+import { NewClaimForm } from "./NewClaimForm";
 
 export default function PolicyholderPage() {
   const [policyNumber, setPolicyNumber] = useState("");
@@ -68,9 +69,42 @@ export default function PolicyholderPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Policyholder</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Submit a claim by its claim_id, or look up your existing claims by policy number.
+          Submit a new claim with your own documents, replay a demo scenario, or look up your existing claims.
         </p>
       </div>
+
+      <section className="rounded-lg border border-border bg-card p-5">
+        <h2 className="font-medium text-card-foreground">Submit a new claim</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Attach real PDF files — they are genuinely read by the intake agent (real text extraction, not a
+          pre-seeded replay). After the claim is created it is submitted for assessment automatically.
+        </p>
+        <NewClaimForm onCreated={(claimId) => submit(claimId)} />
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-5">
+        <h2 className="font-medium text-card-foreground">Submit by claim_id</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Already have a claim_id (e.g. from a demo scenario below)? Submit it directly.
+        </p>
+        <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
+          <input
+            value={claimIdToSubmit}
+            onChange={(e) => setClaimIdToSubmit(e.target.value)}
+            placeholder="e.g. CLM-2026-018833"
+            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? "Submitting…" : "Submit"}
+          </button>
+        </form>
+        {submitError && <p className="mt-3 text-sm text-destructive">{submitError}</p>}
+        {submitResult && <SubmitResultCard result={submitResult} />}
+      </section>
 
       <section className="rounded-lg border border-border bg-card p-5">
         <h2 className="font-medium text-card-foreground">Demo scenarios</h2>
@@ -91,27 +125,6 @@ export default function PolicyholderPage() {
             </button>
           ))}
         </div>
-      </section>
-
-      <section className="rounded-lg border border-border bg-card p-5">
-        <h2 className="font-medium text-card-foreground">Submit a claim</h2>
-        <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-          <input
-            value={claimIdToSubmit}
-            onChange={(e) => setClaimIdToSubmit(e.target.value)}
-            placeholder="e.g. CLM-2026-018833"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? "Submitting…" : "Submit"}
-          </button>
-        </form>
-        {submitError && <p className="mt-3 text-sm text-destructive">{submitError}</p>}
-        {submitResult && <SubmitResultCard result={submitResult} />}
       </section>
 
       <section className="rounded-lg border border-border bg-card p-5">

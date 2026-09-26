@@ -114,7 +114,7 @@ async def submit_new_claim(
     if hospital is None:
         raise HTTPException(status_code=404, detail={"reason_code": "INTAKE-NO-SUCH-HOSPITAL", "message": f"hospital {hospital_id!r} does not exist"})
 
-    claim_id = f"CLM-{date.today().year}-{uuid.uuid4().hex[:9].upper()}"
+    claim_id = f"CLM-{date.today().year}-{uuid.uuid4().hex[:9].upper()}"  # noqa: DTZ011 - calendar date only, matches settlement.py's own precedent
     claim = Claim(
         claim_id=claim_id, policy_number=policy_number, member_id=member_id, hospital_id=hospital_id,
         admission_date=admission_date, discharge_date=discharge_date, stated_illness=stated_illness,
@@ -136,9 +136,7 @@ async def submit_new_claim(
         file_path.write_bytes(raw_bytes)
         try:
             extracted_text = _extract_pdf_text(raw_bytes)
-        except Exception as exc:  # pypdf raising on a malformed/non-PDF upload — fail closed to needs_resubmission below, not a 500
-            extracted_text = ""
-            missing.append(doc_type)
+        except Exception as exc:  # noqa: BLE001 - pypdf raising on a malformed/non-PDF upload; fail closed with a clear 422, not a 500
             db.rollback()
             raise HTTPException(status_code=422, detail={"reason_code": "INTAKE-UNREADABLE-PDF", "message": f"could not read {doc_type} as a PDF: {exc}"}) from None
 
