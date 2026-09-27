@@ -97,15 +97,6 @@ function Section({ id, n, title, lead, children }: { id: string; n: number; titl
   );
 }
 
-function Metric({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-md bg-secondary p-3">
-      <p className="text-2xl font-semibold tabular-nums text-card-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
 function Legend({ n, text }: { n: string; text: string }) {
   return (
     <li className="flex gap-2 rounded-md bg-secondary px-3 py-2">

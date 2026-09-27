@@ -50,7 +50,7 @@ AGT policy check → Ed25519 identity → 1-scope JWT (≤ 300 s) → data gatew
 | **Payout kill switch** | Compliance can freeze automated payouts instantly; governed and audited |
 | **Audit & observability** | Tamper-evident audit log; one Phoenix trace per claim with medical text redacted |
 | **Evaluation (Harbor)** | 10 scenarios incl. attacks, plus a check of every live claim, scoring outcome *and* governance; no Docker |
-| **Console (Next.js)** | Role-based sign-in, dashboard, business problem, architecture, Live Run with agents and backend log, officer, compliance |
+| **Console (Next.js)** | Role-based sign-in, dashboard, business problem, architecture, Live Run with agents and backend log, officer, compliance. Every figure it shows is computed live (`GET /system/facts`, Harbor, the audit log), never typed in |
 
 ## Tech stack
 

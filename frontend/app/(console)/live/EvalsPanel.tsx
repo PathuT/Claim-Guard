@@ -84,6 +84,9 @@ function SuiteView() {
     );
 
   const needsAi = (ids: string[]) => suite.rows.filter((r) => ids.includes(r.scenario) && r.uses_ai).length;
+  // Expected time per AI scenario, from the durations of the last real runs.
+  const aiDurations = suite.rows.filter((r) => r.uses_ai && r.duration_s != null).map((r) => r.duration_s as number);
+  const avgAi = aiDurations.length ? Math.round(aiDurations.reduce((x, y) => x + y, 0) / aiDurations.length) : null;
 
   return (
     <>
@@ -110,7 +113,7 @@ function SuiteView() {
             Run <span className="font-mono font-semibold">{confirming.length === suite.rows.length ? "S01–S10" : confirming.join(", ")}</span> through Harbor?{" "}
             {needsAi(confirming) > 0 ? (
               <>
-                {needsAi(confirming)} scenario(s) replay a claim through the live AI agents (about 1 min each, uses the Groq quota), so
+                {needsAi(confirming)} scenario(s) replay a claim through the live AI agents ({avgAi ? `about ${avgAi} s each, from the last runs` : "about a minute each"}, uses the Groq quota), so
                 don&apos;t start a Live Run claim until it finishes.
               </>
             ) : (
