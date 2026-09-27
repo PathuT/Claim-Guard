@@ -53,9 +53,12 @@ from data_gateway.models import BankDetail, Claim, ClaimDocument, Policyholder
 from data_gateway.pseudonymise import pseudonymise
 from observability import live_events
 from observability.live_events import emit, step
+from observability.terminal_log import quiet_polling_access_logs
 from observability.tracing import setup_tracing
 
 setup_tracing(service_name="claimguard-agentos")
+# Terminal: keep the story, drop the console's polling GETs (observability/terminal_log.py).
+quiet_polling_access_logs()
 
 app = FastAPI(title="ClaimGuard AgentOS API")
 tracer = trace.get_tracer("claimguard.agentos")

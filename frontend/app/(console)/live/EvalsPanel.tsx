@@ -13,7 +13,7 @@ import { ApiError, type ClaimCheckSummary, type SuiteRow, getSuite, listClaimChe
 export function EvalsPanel() {
   const [tab, setTab] = useState<"suite" | "claims">("suite");
   return (
-    <section id="evals" className="scroll-mt-20 rounded-lg border border-border bg-card p-5">
+    <section id="evals" className="scroll-mt-20 rounded-xl border border-border bg-card shadow-sm p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-card-foreground">Automated evaluation — Harbor</h2>

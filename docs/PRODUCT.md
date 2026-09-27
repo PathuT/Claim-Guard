@@ -152,8 +152,10 @@ switch). The key ones:
 
 ## 8. Limitations and next steps
 
-- **No human login**: roles are views, not authenticated sessions. Next step: an
-  identity provider (OIDC) for the console roles.
+- **Console sign-in is a local identity store**: scrypt-hashed demo accounts, a signed
+  httpOnly session and role-based page access, but the backend APIs are not yet behind
+  user authentication. Next step: an identity provider (OIDC) and user tokens checked by
+  the backend.
 - **Local, single-node deployment.** Next step: containers or Kubernetes, secrets in
   a vault, the audit log mirrored to a WORM store.
 - **Token service mirrors OAuth token exchange but is custom.** Next step: a

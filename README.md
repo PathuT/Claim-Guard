@@ -197,6 +197,8 @@ flowchart LR
 ### Console (Next.js)
 | Page | What it shows |
 |---|---|
+| `/login` | Sign-in with role-based demo accounts |
+| `/` | Dashboard: live system health (agents, audit chain, payouts, Harbor), KPIs, latest claims, the claim flow, the demo path |
 | `/architecture` | Problem, brief → built → added, system and sequence diagrams, added features, security model, ADRs, framework findings, demo tour |
 | `/live` | **Live Run**: sample packs or your own PDFs, narrated chapters, **Agents at work** (each agent's AI calls, policy checks and every short-lived JWT it was issued: scope, TTL, jti), streaming backend log, meter, requirements proof, red-team replay, the Harbor check of each claim, and a live Harbor panel (run S01–S10 or one scenario from the page, with progress, plus the history of per-claim checks) |
 | `/policyholder` | Submit a claim; see status, payable amount and every deduction with its clause |
@@ -287,6 +289,8 @@ cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 cd evals/harbor && uv sync && cd ../..    # for the Harbor evals
 npm run seed                              # synthetic data (idempotent)
+# Console sign-in key (local only, git-ignored):
+node -e "console.log('CONSOLE_SESSION_SECRET='+require('crypto').randomBytes(32).toString('base64url'))" > frontend/.env.local
 ```
 
 ### Run
@@ -297,7 +301,17 @@ This starts Phoenix (`:6006`), the console (`:3005`), the token service (`:8100`
 data gateway (`:8200`), AgentOS (`:8000`) and the officer API (`:8400`) in one
 terminal. It works from bash, cmd and PowerShell.
 
-Open **http://localhost:3005/architecture**.
+Open **http://localhost:3005** and sign in. The sign-in page lists the demo accounts:
+
+| Account | Role | Sees |
+|---|---|---|
+| `admin@kaveri-health.example` / `Admin@2026` | Platform admin | Everything (the presenter account) |
+| `arjun.mehta@kaveri-health.example` / `Officer@2026` | Claims officer | Review queue, Live Run, pipeline, architecture |
+| `divya.nair@kaveri-health.example` / `Comply@2026` | Compliance officer | Compliance and kill switch, pipeline, architecture |
+| `priya.raman@example.com` / `Priya@2026` | Policyholder | Submit and track her own claims |
+
+Each role sees only its own pages; opening another page redirects home with a notice.
+Officer decisions and kill-switch changes are recorded under the signed-in user.
 
 ---
 
@@ -306,6 +320,7 @@ Open **http://localhost:3005/architecture**.
 About 18 minutes. The full script and likely questions are in
 [`docs/demo-script.md`](docs/demo-script.md).
 
+0. **Sign in** as the platform admin; the dashboard shows the system is healthy (agents online, audit chain intact, payouts active, Harbor 10/10).
 1. **Architecture** (`/architecture`): problem, brief → built → added, diagrams.
 2. **Happy path** (`/live` → *Jyoti — Dengue fever*): narrate the chapters; watch identity → token → gateway in the log; the meter; ₹37,300 auto-paid.
 3. **Requirements proof**: each requirement ticked off by evidence from that run.
@@ -404,7 +419,7 @@ docs/              product overview, architecture, security matrix, ADRs, demo s
 
 ## 14. Limitations and next steps
 
-- **No human login.** Console roles are views, not authenticated sessions. Next step: OIDC for the console roles.
+- **Console sign-in is a local identity store.** Four demo accounts (scrypt-hashed passwords), an HMAC-signed httpOnly session cookie and role-based page access enforced by `frontend/proxy.ts`. The backend APIs the console calls are not yet behind user authentication (only agent JWTs). Next step: an OIDC identity provider, and user tokens checked by AgentOS and the officer API.
 - **Local, single-node deployment.** Next step: containers or Kubernetes, a secrets vault, the audit log mirrored to WORM storage.
 - **Custom token service** that mirrors OAuth token exchange. Next step: a standards-based authorization server.
 - **Harbor runs against the shared dev stack.** Next step: a disposable per-run database in CI.

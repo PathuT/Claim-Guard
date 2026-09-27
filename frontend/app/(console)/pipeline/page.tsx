@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import { PageHeader } from "@/app/_components/PageHeader";
 import useSWR from "swr";
 import { ApiError, type AuditEntry, type ClaimStatus, getClaimAudit, getClaimStatus } from "@/lib/api";
 import { formatInr, severityStyle } from "@/lib/format";
@@ -17,8 +19,18 @@ const AGENT_AUDITED_TOOLS: Record<string, string[]> = {
 };
 
 export default function PipelinePage() {
-  const [claimId, setClaimId] = useState("");
-  const [activeClaimId, setActiveClaimId] = useState<string | null>(null);
+  return (
+    <Suspense fallback={null}>
+      <Pipeline />
+    </Suspense>
+  );
+}
+
+function Pipeline() {
+  // ?claim=<id> (e.g. from the dashboard's latest claims) opens that claim.
+  const initial = useSearchParams().get("claim");
+  const [claimId, setClaimId] = useState(initial ?? "");
+  const [activeClaimId, setActiveClaimId] = useState<string | null>(initial);
 
   const { data: status, error: statusError, isLoading: statusLoading } = useSWR(
     activeClaimId ? ["pipeline-status", activeClaimId] : null,
@@ -36,24 +48,20 @@ export default function PipelinePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Agent pipeline — Agno Workflow &ldquo;claim-assessment&rdquo;</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Every claim runs through one Agno Workflow: four Agno agents (intake, medical reviewer, coverage,
-          fraud) plus settlement, tiering and payout in code, with a Condition deciding auto-pay (T2) or a human officer
-          (T3). Each step passes forward a typed result — never raw medical text. This view shows each step&apos;s stored
-          output for one claim, and which steps made governed calls recorded in the audit log.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Agno Workflow · claim-assessment"
+        title="Agent pipeline"
+        description="Every claim runs through one Agno Workflow: four Agno agents (intake, medical reviewer, coverage, fraud) plus the settlement engine, tiering and payout, with a Condition deciding auto-pay (T2) or a human officer (T3). Each step passes forward a typed result, never raw medical text. Load a claim to see each step's stored output and which steps made governed calls."
+      />
 
       <form onSubmit={handleLoad} className="flex gap-2">
         <input
           value={claimId}
           onChange={(e) => setClaimId(e.target.value)}
           placeholder="e.g. CLM-2026-018836"
-          className="flex-1 max-w-sm rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          className="h-10 max-w-sm flex-1 rounded-lg border border-border bg-card px-3 text-sm shadow-sm outline-none focus:border-chart-1 focus:ring-4 focus:ring-chart-1/15"
         />
-        <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <button type="submit" className="h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90">
           Load
         </button>
       </form>
@@ -105,7 +113,7 @@ function AuditBadge({ agentId, entries }: { agentId: string; entries: AuditEntry
 
 function StepCard({ title, agentId, auditEntries, children }: { title: string; agentId: string; auditEntries: AuditEntry[]; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card shadow-sm p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-card-foreground">{title}</h3>
         <AuditBadge agentId={agentId} entries={auditEntries} />

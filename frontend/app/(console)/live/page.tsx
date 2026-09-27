@@ -315,14 +315,14 @@ export default function LiveRunPage() {
   const replacedExplanation = guardrailExplanation(lines);
 
   return (
-    <div className="relative left-1/2 flex w-[min(1400px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <Intro />
 
       <StartPanel disabled={busy} onSamplePack={handleSamplePack} onUpload={handleUpload} onReplay={handleReplay} />
 
       {started && (
         <>
-          <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-xl border border-border bg-card shadow-sm p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-col">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Now playing</span>
@@ -872,8 +872,8 @@ function AttackChapter({
 
 function Intro() {
   return (
-    <section className="rounded-lg border border-border bg-card p-6">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kaveri Health Assurance · ClaimGuard</span>
+    <section className="rounded-xl border border-border bg-card shadow-sm p-6">
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-chart-1">Live Run · real backend</span>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-card-foreground">
         A claim, from hospital paperwork to payout — live
       </h1>
@@ -903,7 +903,7 @@ function Pillar({ title, text }: { title: string; text: string }) {
 
 function BuildJourney() {
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
+    <section className="rounded-xl border border-border bg-card shadow-sm p-5">
       <h2 className="font-semibold text-card-foreground">How it was built</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Delivered milestone by milestone, security core first — each ending in something demonstrable.

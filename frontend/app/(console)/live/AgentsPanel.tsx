@@ -150,7 +150,7 @@ const STATUS_STYLE: Record<string, string> = {
  * the backend's live events for this run, never from a script. */
 export function AgentsPanel({ lines, steps, running, complete }: { lines: LogLine[]; steps: Record<string, StepState>; running: boolean; complete: boolean }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-xl border border-border bg-card shadow-sm p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h2 className="font-semibold text-card-foreground">Agents at work</h2>

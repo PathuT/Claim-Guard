@@ -62,7 +62,7 @@ export function SystemFlow({ lines, live }: { lines: LogLine[]; live: boolean })
   const isCurrent = (node: Node) => live && last != null && node.layers.includes(last);
 
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
+    <section className="rounded-xl border border-border bg-card shadow-sm p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold text-card-foreground">System flow {live ? "— live" : ""}</h2>
         <span className="text-xs text-muted-foreground">A request can only move along this path: no governance approval, no token; no token, no data.</span>

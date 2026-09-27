@@ -3,13 +3,17 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { ApiError, listClaims } from "@/lib/api";
+import { PageHeader } from "@/app/_components/PageHeader";
+import { useSessionUser } from "@/app/_components/SessionContext";
 import { formatInr } from "@/lib/format";
 import { OfficerDetail } from "./OfficerDetail";
 
 const QUEUE_KEY = ["officer-queue", "pending_human"] as const;
 
 export default function OfficerPage() {
-  const [officerId, setOfficerId] = useState("officer-arjun");
+  const user = useSessionUser();
+  // Decisions are recorded against the signed-in user, not a typed-in id.
+  const officerId = user?.actorId ?? "officer-arjun";
   const [selected, setSelected] = useState<string | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR(QUEUE_KEY, () => listClaims({ status: "pending_human" }));
@@ -24,25 +28,23 @@ export default function OfficerPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Officer — T3 human review queue</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          The claim workflow routed each claim below to <code className="rounded bg-muted px-1">pending_human</code>:
-          above ₹50,000, a fraud flag, an exclusion or waiting-period issue, or a recommended rejection. Agents can only
-          recommend. Only an officer decision record can approve these payouts (PAY-003 / PAY-004) or reject a claim
-          (STATE-001). You see the coded findings, flags and policy clauses, not raw medical text; reading the discharge
-          summary requires an audited break-glass with a reason.
-        </p>
-        <label className="mt-3 flex max-w-sm flex-col gap-1 text-sm">
-          Your officer ID (recorded on every decision)
-          <input
-            value={officerId}
-            onChange={(e) => setOfficerId(e.target.value)}
-            placeholder="e.g. officer-arjun"
-            className="rounded-md border border-border bg-background px-3 py-2 focus:border-primary outline-none"
-          />
-        </label>
-      </div>
+      <PageHeader
+        eyebrow="Human in the loop · T3"
+        title="Review queue"
+        description={
+          <>
+            The workflow routed each claim below to a human: above ₹50,000, a fraud flag, an exclusion or waiting period, or a
+            recommended rejection. Agents can only recommend. Only an officer decision can approve these payouts (PAY-003 /
+            PAY-004) or reject a claim (STATE-001). You see coded findings, flags and clauses, not raw medical text; reading the
+            discharge summary needs an audited break-glass with a reason.
+          </>
+        }
+        actions={
+          <span className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-sm">
+            Decisions recorded as <span className="font-mono font-semibold text-card-foreground">{officerId}</span>
+          </span>
+        }
+      />
 
       {loading && <p className="text-sm text-muted-foreground">Loading queue…</p>}
       {loadError && <p className="text-sm text-destructive">{loadError}</p>}
@@ -52,7 +54,7 @@ export default function OfficerPage() {
 
       <div className="flex flex-col gap-3">
         {queue.map((claim) => (
-          <div key={claim.claim_id} className="rounded-lg border border-border bg-card p-5">
+          <div key={claim.claim_id} className="rounded-xl border border-border bg-card shadow-sm p-5">
             <button
               type="button"
               onClick={() => setSelected(selected === claim.claim_id ? null : claim.claim_id)}

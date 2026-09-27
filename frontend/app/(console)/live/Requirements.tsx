@@ -211,7 +211,7 @@ export function Requirements({ lines, steps = {} }: { lines: LogLine[]; steps?: 
   const testsCount = results.filter((r) => r.evidence.status === "tests").length;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
         <span className="text-sm font-semibold text-card-foreground">Requirements — proven live</span>
         <span className="text-xs tabular-nums text-muted-foreground">

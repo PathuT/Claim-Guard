@@ -42,11 +42,14 @@ from data_gateway.db import get_session
 from data_gateway.models import BankDetail, Claim, ClaimDocument, Policyholder
 from governance.adapter import GovernanceDenied, ToolCallContext, check_and_audit
 from governance.client import ToolCallDenied, new_req_id
+from observability.terminal_log import quiet_polling_access_logs
 from observability.tracing import setup_tracing
 
 from .state_machine import ClaimStateContext, InvalidTransition, transition
 
 setup_tracing(service_name="claimguard-officer-api")
+# Terminal: keep the story, drop the console's polling GETs (observability/terminal_log.py).
+quiet_polling_access_logs()
 
 app = FastAPI(title="ClaimGuard Officer Decision API")
 tracer = trace.get_tracer("claimguard.officer_api")

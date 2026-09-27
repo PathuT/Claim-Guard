@@ -8,8 +8,11 @@ new frameworks, clarity and depth. Each part below says which of those it demons
 
 ## Before the interview
 
-1. Start the stack from the repo root: `npm run dev`. Check that
-   `http://localhost:8000/healthz` responds.
+1. Start the stack from the repo root: `npm run dev`. Open `http://localhost:3005` and
+   sign in as **Platform Admin** (one click on the sign-in page). The dashboard's health
+   panel should read: agents online, audit chain intact, payouts active, Harbor 10/10.
+   Arrange the screen with the browser on the left and the `npm run dev` terminal on the
+   right: the terminal prints the same story as the page, from the real backend process.
 2. Run the Harbor suite once so the scoreboard is fresh: `npm run eval`. It takes about
    10 minutes, runs one scenario at a time, and needs no Docker.
 3. Rehearse each sample pack once on the Live Run page. It's safe to repeat: each pack
@@ -71,6 +74,9 @@ Use the numbered section bar at the top of the page.
 - Switch the right panel to **Requirements proof**: every requirement is ticked off by
   evidence from this run.
 - Point at the **System flow** boxes that lit up with counts: that's the stack at work.
+- Point at the **terminal**: the same steps, tokens and policy checks, printed by the AgentOS
+  process itself, each line tagged with the trace id Phoenix uses. "The page isn't a
+  mock-up; this is the backend talking."
 - Point at **Agents at work**: the fraud and payout agents each got their own JWT per collection
   (scope, a TTL of seconds, jti), and every action passed an AGT policy check. The intake, medical and
   coverage agents needed no token: the workflow handed them their input. "Least privilege isn't a
@@ -132,6 +138,11 @@ The **Harbor panel** has two tabs:
 fired, and it runs on every claim, not just the test suite."
 
 ## Likely questions
+
+- **Is the login real?** Yes, for the console: scrypt-hashed passwords, an HMAC-signed
+  httpOnly session cookie, and role-based access to every page enforced by Next.js
+  Proxy (sign in as Priya and try `/compliance`). The backend APIs are not yet behind
+  user tokens; the next step is an OIDC provider whose tokens the backend checks too.
 
 - **Why not let an LLM orchestrate?** The sequence and the money maths are
   deterministic code. The LLM is treated as an untrusted decision-maker (see ADR-001's

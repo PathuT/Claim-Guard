@@ -3,6 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { ApiError, getAuditLog, getComplianceSummary, getPayoutFreeze, setPayoutFreeze } from "@/lib/api";
+import { PageHeader } from "@/app/_components/PageHeader";
+import { useSessionUser } from "@/app/_components/SessionContext";
 import { RULE_TEXT } from "@/lib/liveRun";
 
 /** Fallback descriptions for rules this page owns that the shared RULE_TEXT
@@ -43,13 +45,11 @@ export default function CompliancePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Compliance — governance evidence</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Every action any agent (or officer) attempted passes the AGT governance adapter, which records its verdict in an
-          append-only, hash-chained audit log before anything executes. This page reads that log live.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Compliance · governance evidence"
+        title="Audit and controls"
+        description="Every action any agent or officer attempts passes the AGT governance adapter, which records its verdict in an append-only, hash-chained audit log before anything executes. This page reads that log live."
+      />
 
       <PayoutKillSwitch
         onChanged={() => {
@@ -155,7 +155,7 @@ export default function CompliancePage() {
         {loadError && <p className="text-sm text-destructive">{loadError}</p>}
 
         {!isLoading && !loadError && (
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -200,7 +200,8 @@ export default function CompliancePage() {
  * with the officer id and reason. */
 function PayoutKillSwitch({ onChanged }: { onChanged: () => void }) {
   const { data: state, error, mutate } = useSWR("payout-freeze", getPayoutFreeze, { refreshInterval: 15_000 });
-  const [officerId, setOfficerId] = useState("compliance-divya");
+  const user = useSessionUser();
+  const [officerId, setOfficerId] = useState(user?.actorId ?? "compliance-divya");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -337,7 +338,7 @@ function PayoutKillSwitch({ onChanged }: { onChanged: () => void }) {
 function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?: "success" | "danger"; hint?: string }) {
   const color = tone === "success" ? "text-success" : tone === "danger" ? "text-destructive" : "text-card-foreground";
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card shadow-sm p-4">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={`mt-1 text-2xl font-semibold tabular-nums ${color}`}>{value}</p>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
@@ -347,7 +348,7 @@ function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?
 
 function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card shadow-sm p-4">
       <p className="font-semibold text-card-foreground">{title}</p>
       <p className="mb-3 text-xs text-muted-foreground">{subtitle}</p>
       {children}

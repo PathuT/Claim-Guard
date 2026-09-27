@@ -37,6 +37,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import SpanProcessor
 
+from . import terminal_log
 from .redaction import MEDICAL_REDACTED, redact_value
 
 _channels: dict[int, queue.Queue] = {}
@@ -96,6 +97,8 @@ def emit(
     warn / deny / error.
     """
     trace_id = _current_trace_id()
+    safe_title, safe_detail = _safe(title), _safe(detail)
+    terminal_log.event(layer, safe_title, safe_detail, level, trace_id)
     channel = None if trace_id is None else _channels.get(trace_id)
     if channel is None:
         return
@@ -103,8 +106,8 @@ def emit(
         "kind": "log",
         "ts": time.time(),
         "layer": layer,
-        "title": _safe(title),
-        "detail": _safe(detail),
+        "title": safe_title,
+        "detail": safe_detail,
         "level": level,
         "step": _current_step.get(trace_id),
         "data": data or {},
@@ -115,6 +118,7 @@ def step(step_id: str, status: str, summary: str | None = None, data: dict[str, 
     """Chapter progress for the Story view: `status` is active / done /
     skipped / blocked."""
     trace_id = _current_trace_id()
+    terminal_log.step(step_id, status, _safe(summary), trace_id)
     channel = None if trace_id is None else _channels.get(trace_id)
     if channel is None:
         return
@@ -140,15 +144,9 @@ class LiveEventSpanProcessor(SpanProcessor):
         span_context = span.get_span_context()
         if span_context is None:
             return
-        channel = _channels.get(span_context.trace_id)
-        if channel is None:
-            return
-        current_step = _current_step.get(span_context.trace_id)
-
         attributes = dict(span.attributes or {})
-        duration_ms = ((span.end_time or 0) - (span.start_time or 0)) / 1_000_000
-        redacted_count = sum(1 for v in attributes.values() if v == MEDICAL_REDACTED)
         kind = attributes.get("openinference.span.kind")
+        duration_ms = ((span.end_time or 0) - (span.start_time or 0)) / 1_000_000
 
         if kind == "LLM":
             model = attributes.get("llm.model_name") or attributes.get("llm.provider") or "LLM"
@@ -157,6 +155,16 @@ class LiveEventSpanProcessor(SpanProcessor):
             tokens = ""
             if prompt_tokens is not None or completion_tokens is not None:
                 tokens = f" · {prompt_tokens or 0} prompt + {completion_tokens or 0} completion tokens"
+            # Printed for every LLM call, live run or not (Harbor, POST /claims).
+            terminal_log.event("llm", f"LLM call completed — {model}", f"{duration_ms:,.0f} ms{tokens}", "info", span_context.trace_id)
+
+        channel = _channels.get(span_context.trace_id)
+        if channel is None:
+            return
+        current_step = _current_step.get(span_context.trace_id)
+        redacted_count = sum(1 for v in attributes.values() if v == MEDICAL_REDACTED)
+
+        if kind == "LLM":
             channel.put({
                 "kind": "log", "ts": time.time(), "layer": "llm", "step": current_step,
                 "title": f"LLM call completed — {model}",

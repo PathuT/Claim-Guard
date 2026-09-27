@@ -43,7 +43,7 @@ export function StartPanel({
   ];
 
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
+    <section className="rounded-xl border border-border bg-card shadow-sm p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-card-foreground">Start a claim</h2>
         <div className="flex flex-wrap gap-1 rounded-md bg-secondary p-1">

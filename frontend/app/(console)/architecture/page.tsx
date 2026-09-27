@@ -23,8 +23,8 @@ const SECTIONS = [
 
 export default function ArchitecturePage() {
   return (
-    <div className="relative left-1/2 flex w-[min(1300px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-8">
-      <header className="rounded-lg border border-border bg-card p-6">
+    <div className="flex flex-col gap-8">
+      <header className="rounded-xl border border-border bg-card shadow-sm p-6">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ClaimGuard · solution architecture</span>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-card-foreground">
           Governed, observable AI agents for health-insurance claims
@@ -44,7 +44,7 @@ export default function ArchitecturePage() {
         </div>
       </header>
 
-      <nav className="sticky top-[env(safe-area-inset-top,0px)] z-20 -my-4 flex flex-wrap gap-1 rounded-lg border border-border bg-card/95 p-1.5 backdrop-blur">
+      <nav className="sticky top-16 z-10 -my-4 flex flex-wrap gap-1 rounded-xl border border-border bg-card shadow-sm/95 p-1.5 backdrop-blur">
         {SECTIONS.map((s, i) => (
           <a key={s.id} href={`#${s.id}`} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
             <span className="mr-1 font-mono text-chart-1">{i + 1}</span>
@@ -91,7 +91,7 @@ export default function ArchitecturePage() {
 
 function Section({ id, n, title, lead, children }: { id: string; n: number; title: string; lead?: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-20 rounded-lg border border-border bg-card p-6">
+    <section id={id} className="scroll-mt-20 rounded-xl border border-border bg-card shadow-sm p-6">
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-sm font-semibold text-chart-1">{String(n).padStart(2, "0")}</span>
         <h2 className="text-xl font-semibold tracking-tight text-card-foreground">{title}</h2>
@@ -216,6 +216,7 @@ const BRIEF = [
       "Live Run: real PDF upload, narrated chapters, streaming backend log",
       "Requirements proof ticked off by live evidence",
       "Red-team replay: injected payout attempts blocked on screen",
+      "Console sign-in with role-based pages: the humans get RBAC too (proxy.ts)",
       "Cost & token meter: measured model usage per run",
       "Realistic hospital documents (letterhead, barcode, QR, stamp), one poisoned with invisible text",
       "This architecture page",

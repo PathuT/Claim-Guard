@@ -12,6 +12,8 @@ import {
   submitClaim,
   submitNewClaim,
 } from "@/lib/api";
+import { PageHeader } from "@/app/_components/PageHeader";
+import { useSessionUser } from "@/app/_components/SessionContext";
 import { formatInr, humanizeStatus, statusStyle } from "@/lib/format";
 import { UploadForm } from "../live/StartPanel";
 
@@ -27,7 +29,9 @@ export default function PolicyholderPage() {
   const [result, setResult] = useState<SubmitClaimResult | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [policyNumber, setPolicyNumber] = useState("");
+  const user = useSessionUser();
+  // A signed-in policyholder's policy comes from the session, not a text box.
+  const [policyNumber, setPolicyNumber] = useState(user?.role === "policyholder" ? user.actorId : "");
   const [claims, setClaims] = useState<ClaimSummary[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -68,20 +72,27 @@ export default function PolicyholderPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Policyholder — submit and track a claim</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Paid the hospital yourself? Upload the final bill and discharge summary. The documents are read for real (PDF
-          text extraction), assessed by the claim workflow, and you get a decision with every deduction explained against your
-          policy. Want to see every backend step as it happens? Use{" "}
-          <Link href="/live" className="font-medium text-chart-1 underline">
-            Live Run
-          </Link>
-          .
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Policyholder"
+        title="Submit and track a claim"
+        description={
+          <>
+            Paid the hospital yourself? Upload the final bill and discharge summary. The documents are read for real (PDF text
+            extraction), assessed by the claim workflow, and you get a decision with every deduction explained against your policy.
+            {user?.role !== "policyholder" && (
+              <>
+                {" "}To watch every backend step as it happens, use{" "}
+                <Link href="/live" className="font-medium text-chart-1 underline">
+                  Live Run
+                </Link>
+                .
+              </>
+            )}
+          </>
+        }
+      />
 
-      <section className="rounded-lg border border-border bg-card p-5">
+      <section className="rounded-xl border border-border bg-card shadow-sm p-5">
         <h2 className="font-medium text-card-foreground">Submit a new claim</h2>
         <p className="mb-4 mt-1 text-xs text-muted-foreground">
           The documents and the stated illness are treated as untrusted input: they are read, never obeyed.
@@ -111,7 +122,7 @@ export default function PolicyholderPage() {
         {result && <DecisionCard result={result} />}
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-5">
+      <section className="rounded-xl border border-border bg-card shadow-sm p-5">
         <h2 className="font-medium text-card-foreground">Your claims</h2>
         <form onSubmit={handleSearch} className="mt-3 flex flex-wrap gap-2">
           <input
