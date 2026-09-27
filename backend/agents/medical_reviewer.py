@@ -15,6 +15,7 @@ from agno.agent import Agent
 
 from .intake import wrap_untrusted
 from .model_config import GROQ_RATE_LIMIT_RETRY
+from .structured import run_structured
 from .schemas import MedicalFinding
 
 INSTRUCTIONS = """You are the medical reviewer agent for ClaimGuard, a health insurance claims system.
@@ -100,5 +101,4 @@ def run_medical_review(
         f"policy_start_date: {policy_start_date}\n\n"
         f"{wrap_untrusted('diagnosis facts', diagnosis_text)}"
     )
-    response = agent.run(user_message)
-    return response.content
+    return run_structured(agent, user_message, MedicalFinding, "Medical reviewer")

@@ -28,6 +28,7 @@ from agno.agent import Agent
 from governance.client import ToolCallDenied, ToolCallRequest, call_tool
 
 from .model_config import GROQ_RATE_LIMIT_RETRY
+from .structured import run_structured
 from .schemas import FraudScreen
 
 INSTRUCTIONS = """You are the fraud agent for ClaimGuard, a health insurance claims system.
@@ -176,8 +177,7 @@ def run_fraud_screen(agent: Agent, claim_id_pseudo: str, req_id: str) -> FraudSc
         f"pre-filtered to these before reaching you):\n{relevant_claims}\n\n"
         f"This claim's hospital:\n{hospital}"
     )
-    response = agent.run(user_message)
-    result = response.content
+    result = run_structured(agent, user_message, FraudScreen, "Fraud agent")
     result.claim_id = claim_id_pseudo
     return result
 

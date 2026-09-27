@@ -269,6 +269,7 @@ flowchart LR
 | OpenTelemetry | Trace context was lost across services. | A parent span around each governed round trip gives one trace per claim. |
 | Harbor | Assumes containers; shell and encoding differ on Windows. | Custom host environment, Git Bash, UTF-8 mode. |
 | Groq | Allows 8,000 tokens/min, and a claim uses about 6,600. | Retries with backoff; Harbor runs scenarios one at a time. |
+| Harbor, on the final code | Caught two intermittent bugs: the intake agent sometimes dropped the room rate from a label (so the room-rent cap applied only sometimes), and the model once emitted invalid JSON (`"confidence": 0. nine`). | The settlement engine derives the daily rate from the line total when the label lacks it; every agent's typed output is re-requested up to 3 times before failing closed. Regression tests for both. |
 | Security review | `bank_details:read` had no row binding. | The gateway now resolves the token's claim to its policy first. |
 
 ---

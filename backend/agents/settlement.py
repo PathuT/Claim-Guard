@@ -12,6 +12,7 @@ Every deduction cites a `clause_id` from data/synthetic/generators/plan_terms.py
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -55,20 +56,33 @@ def _parse_bill_date(s: str) -> date:
     raise ValueError(f"Unrecognised date format: {s!r}")
 
 
-def _room_rent_line_items(line_items: list[BillLineItem]) -> tuple[list[BillLineItem], int | None]:
-    """Finds the room-rent line item(s) and, if the label states "N days @
-    ₹X", the implied per-day rate — needed to compute excess over the cap.
-    Returns (room_rent_items, per_day_rate_or_None)."""
-    room_items = [li for li in line_items if "room rent" in li.label.lower()]
+ROOM_RENT_LABEL = re.compile(r"\broom\s*(rent|charges?|tariff)\b", re.IGNORECASE)
+# Rooms that are not accommodation, so never subject to the room-rent cap.
+NOT_ACCOMMODATION = re.compile(r"\b(operat\w*|theat\w*|procedure|recovery|labou?r|delivery|emergency|icu|iccu|nicu|treatment)\b", re.IGNORECASE)
+
+
+def _room_rent_line_items(line_items: list[BillLineItem], stay_days: int) -> tuple[list[BillLineItem], int | None]:
+    """Finds the room-rent line item(s) and the per-day rate, needed to
+    compute the excess over the plan's cap. Returns (items, rate_or_None).
+
+    The rate comes from the label's "@ ₹X" when the intake agent copied it,
+    and otherwise from the line total divided by the days billed ("N days"
+    in the label, else the stay length). Found by the Harbor suite (S02): the
+    agent labelled the same ₹32,000 line "Room rent (private) 4 days @ 8,000",
+    "Room rent (private) 4 days" and "Room rent (private)" on different runs,
+    and only the first was capped. The money maths must not depend on how a
+    model phrases a label."""
+    room_items = [li for li in line_items if ROOM_RENT_LABEL.search(li.label) and not NOT_ACCOMMODATION.search(li.label)]
     per_day = None
     for li in room_items:
-        # Labels look like "Room rent (semi-private) 3 days @ 4,500" — pull
-        # the "@ N" figure if present.
-        import re
-
-        m = re.search(r"@\s*([\d,]+)", li.label)
-        if m:
-            per_day = int(m.group(1).replace(",", ""))
+        rate = re.search(r"@\s*(?:₹|rs\.?|inr)?\s*([\d,]+)", li.label, re.IGNORECASE)
+        if rate:
+            per_day = int(rate.group(1).replace(",", ""))
+            continue
+        days = re.search(r"(\d+)\s*days?\b", li.label, re.IGNORECASE)
+        billed_days = int(days.group(1)) if days else stay_days
+        if billed_days > 0 and li.amount > 0:
+            per_day = round(li.amount / billed_days)
     return room_items, per_day
 
 
@@ -100,9 +114,9 @@ def compute_settlement(
     # --- Room rent excess (Silver only; Gold has no cap) ---
     cap = ROOM_RENT_CAP.get(policy.plan)
     if cap is not None:
-        _room_items, per_day_rate = _room_rent_line_items(line_items)
+        stay_days = _stay_days(admission, discharge)
+        _room_items, per_day_rate = _room_rent_line_items(line_items, stay_days)
         if per_day_rate is not None and per_day_rate > cap:
-            stay_days = _stay_days(admission, discharge)
             excess_per_day = per_day_rate - cap
             excess_total = excess_per_day * stay_days
             clause_id = "5.S2" if policy.plan == "Silver" else "5.G2"

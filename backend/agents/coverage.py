@@ -27,6 +27,7 @@ from agno.agent import Agent
 from pydantic import BaseModel
 
 from .model_config import GROQ_RATE_LIMIT_RETRY
+from .structured import run_structured
 from .schemas import CoverageAssessment
 
 INSTRUCTIONS = """You are the coverage agent for ClaimGuard, a health insurance claims system.
@@ -83,5 +84,4 @@ def explain_assessment(agent: Agent, assessment: CoverageAssessment) -> str:
     (from settlement.compute_settlement) and returns its explanation text.
     The assessment itself is never modified here."""
     user_message = assessment.model_dump_json(indent=2)
-    response = agent.run(user_message)
-    return response.content.explanation
+    return run_structured(agent, user_message, CoverageExplanation, "Coverage agent").explanation
