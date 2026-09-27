@@ -140,7 +140,11 @@ function Problem() {
       <div className="mt-4 rounded-md bg-secondary p-4 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Kaveri Health Assurance (fictional)</span> reimburses policyholders who paid the hospital themselves.
         Officers review every bill by hand today — slow, inconsistent and hard to audit. ClaimGuard automates the clean cases and hands the
-        risky ones to humans with the evidence already assembled. All data is synthetic: 60 policies, ~400 historical claims, 25 hospitals
+        risky ones to humans with the evidence already assembled.{" "}
+        <Link href="/problem" className="font-medium text-chart-1 underline">
+          The full business case
+        </Link>
+        . All data is synthetic: 60 policies, ~400 historical claims, 25 hospitals
         (3 watchlisted), plan terms embedded with pgvector, and generated PDFs — 5 of them poisoned with invisible prompt-injection text.
       </div>
     </Section>
@@ -152,7 +156,7 @@ const BRIEF = [
     given: "Agentic AI with Agno",
     built: "Four Agno Agents with Pydantic output contracts (intake, medical reviewer, coverage, fraud), orchestrated by an Agno Workflow — Steps plus a Condition for the T2 / T3 money branch — and served by Agno AgentOS. Model-agnostic: Groq, Gemini or Claude by config.",
     beyond: [
-      "Workflow, not Team: every Team mode has an LLM leader choosing the order — an extra LLM call per hop, and sequencing a prompt injection could influence",
+      "Deterministic orchestration: the step order and the money branch are code, so injected text can't reorder or skip a step, and orchestration costs zero LLM tokens",
       "Fail-closed steps: Agno keeps running after a failed step by default; ours stop the workflow",
       "AgentOS wraps the existing API — /agents and /workflows added, nothing removed",
       "Settlement maths in code: every deduction cites its policy clause",
@@ -561,7 +565,7 @@ function SecurityModel() {
 }
 
 const DECISIONS = [
-  { adr: "001", title: "Agno as the agent framework", chose: "Agno Agents with Pydantic output schemas, orchestrated by an Agno Workflow (Steps + Condition), served by Agno AgentOS.", over: "LangGraph (more boilerplate for simple routing), CrewAI, Microsoft Agent Framework.", note: "Revised while building: orchestration is an Agno Workflow, not an Agno Team. A Team's LLM leader picks the order — an extra model call per hop (cost, latency, rate limits) and a way for injected text to influence sequencing. Workflow steps and the payout Condition are code: same Agno runtime, zero orchestration tokens." },
+  { adr: "001", title: "Agno as the agent framework", chose: "Agno Agents with Pydantic output schemas, orchestrated by an Agno Workflow (Steps + Condition), served by Agno AgentOS.", over: "An Agno Team for orchestration, LangGraph (more boilerplate for simple routing), CrewAI, Microsoft Agent Framework.", note: "Workflow or Team? Agno offers both. A Team's leader LLM decides which agent works next, which suits open-ended tasks. A claim follows a fixed, regulated process, so a Workflow runs it: the same order every time, no extra model call per step, and no way for a poisoned document to steer the sequence." },
   { adr: "002", title: "Governance at the action layer (AGT)", chose: "Every tool call checked by policy in code before it executes; fail closed; structured denials.", over: "Prompt guardrails only (probabilistic — can't guarantee S06 is blocked), LLM-judge output filtering, hand-rolled middleware." },
   { adr: "003", title: "Scoped, short-lived JWTs + separate gateway", chose: "EdDSA tokens: 1 agent, 1 scope, 1 claim, ≤ 300 s; gateway verifies with the public key only.", over: "Long-lived per-agent API keys (leak = broad access), a full Keycloak / OAuth server (heavy; our claims mirror token-exchange, so migration is direct)." },
   { adr: "004", title: "One Postgres, isolated collections", chose: "Postgres 16 + pgvector, only the gateway has credentials; HMAC pseudonymisation in the gateway.", over: "A database per collection (ops overhead), row-level security alone, a separate vector DB." },
@@ -602,7 +606,7 @@ function Decisions() {
 }
 
 const LEARNED = [
-  { fw: "Agno Teams", finding: "Every Team mode (coordinate / route / broadcast / tasks) has an LLM leader deciding delegation — confirmed by reading agno/team/mode.py.", action: "Orchestrated with an Agno Workflow instead: Steps and a Condition, no leader LLM calls." },
+  { fw: "Agno orchestration", finding: "Agno has two ways to coordinate agents: Workflows (steps in code) and Teams, where every mode (coordinate, route, broadcast, tasks) has a leader LLM choosing the next agent. Confirmed in agno/team/mode.py.", action: "Matched the tool to the job: a Workflow for the claims process, which must be predictable and auditable. Teams remain the right choice for open-ended work, such as an officer's assistant." },
   { fw: "Agno Workflows", finding: "When a step raises, Agno logs a warning, runs the remaining steps anyway and reports the run 'completed' — verified in agno 3.0.11.", action: "Every step wrapped to fail closed: the error is recorded and StepOutput(stop=True) halts the run; step retries disabled so a payout is never silently re-attempted." },
   { fw: "Agno AgentOS", finding: "Agents and Workflows default to telemetry=True, and AgentOS can wrap an existing FastAPI app.", action: "Telemetry off everywhere; AgentOS wraps the API with base_app, preserving every existing route. Started without trusted context, the workflow refuses at step 1." },
   { fw: "Microsoft AGT", finding: "v4.1 (public preview) ships no Agno integration.", action: "Built a custom adapter on AGT's framework-agnostic core; used its FlightRecorder audit chain and agentmesh Ed25519 identities as-is instead of reimplementing them." },
@@ -644,6 +648,7 @@ function Learned() {
 }
 
 const TOUR = [
+  { t: "2 min", title: "The business problem", text: "Three-week manual claims, who it hurts, why a plain LLM is unsafe, and the five conditions the business set.", href: "/problem" },
   { t: "5 min", title: "Architecture (this page)", text: "Problem → brief vs built → system diagram → one governed call → decisions.", href: "#problem" },
   { t: "3 min", title: "Happy path, live", text: "Live Run → Jyoti — Dengue fever → Upload & run. Narrate the chapters; point at identity → token → gateway in the backend log. ₹37,300 paid.", href: "/live" },
   { t: "1 min", title: "Requirements proof", text: "Switch the right panel to Requirements proof — each requirement ticked by evidence from that run.", href: "/live" },
@@ -657,7 +662,7 @@ const TOUR = [
 
 function Tour() {
   return (
-    <Section id="tour" n={10} title="Demo tour" lead="The order to walk through the product after this page — about 20 minutes, plus questions.">
+    <Section id="tour" n={10} title="Demo tour" lead="The order to walk through the product after this page — about 22 minutes, plus questions.">
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {TOUR.map((step, i) => {
           const external = step.href.startsWith("http");

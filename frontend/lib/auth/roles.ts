@@ -15,6 +15,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 /** Page prefix -> roles allowed to open it. "/" (the dashboard) is open to every signed-in user. */
 export const ROUTE_ACCESS: { prefix: string; roles: Role[] }[] = [
   { prefix: "/live", roles: ["platform_admin", "claims_officer"] },
+  { prefix: "/problem", roles: ["platform_admin", "claims_officer", "compliance_officer"] },
   { prefix: "/architecture", roles: ["platform_admin", "claims_officer", "compliance_officer"] },
   { prefix: "/officer", roles: ["platform_admin", "claims_officer"] },
   { prefix: "/compliance", roles: ["platform_admin", "compliance_officer"] },
@@ -48,6 +49,7 @@ export const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: "Overview",
     items: [
       { href: "/", label: "Dashboard", icon: "home", description: "Live status of claims, governance and evaluation" },
+      { href: "/problem", label: "Business problem", icon: "alert", description: "Why claims need automation, and why automation needs governance" },
       { href: "/architecture", label: "Architecture", icon: "layers", description: "The brief, the design and the decisions" },
     ],
   },

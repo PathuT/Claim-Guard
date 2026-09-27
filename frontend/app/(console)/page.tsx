@@ -36,6 +36,7 @@ const PRIMARY_ACTION: Record<Role, { href: string; label: string; icon: string }
 };
 
 const DEMO_PATH = [
+  { href: "/problem", title: "Business problem", text: "Three-week claims, and why AI needs guardrails" },
   { href: "/architecture", title: "Architecture", text: "The brief, what was built, what was added" },
   { href: "/live", title: "Live Run · Jyoti", text: "Clean claim, auto-paid ₹37,300, Harbor-verified" },
   { href: "/live", title: "Live Run · Rahul", text: "Poisoned PDF flagged; red-team replay blocked" },
@@ -180,7 +181,7 @@ export default function Dashboard() {
             <h2 className="font-semibold text-card-foreground">Demo path</h2>
             <span className="text-xs text-muted-foreground">About 20 minutes · docs/demo-script.md</span>
           </div>
-          <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <ol className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
             {DEMO_PATH.map((step, i) => (
               <li key={step.title}>
                 <Link href={step.href} className="flex h-full flex-col rounded-lg border border-border p-3 transition hover:border-chart-1/50 hover:shadow-sm">

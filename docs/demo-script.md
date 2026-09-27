@@ -25,6 +25,18 @@ new frameworks, clarity and depth. Each part below says which of those it demons
    minute and one claim uses about 6,600. The agents retry and wait automatically, but
    a run done too soon after another will be visibly slower.
 
+## Part 0: The business problem, 2 min (`/problem`)
+
+*Demonstrates: understanding of the problem before the technology.*
+
+- **Today:** a simple reimbursement claim takes about three weeks, read by hand, with
+  deductions nobody explains.
+- **Who it hurts:** policyholders, claims operations, and risk and compliance.
+- **The catch:** medical data, irreversible money, and documents written by a possible
+  fraudster, so a plain LLM is unsafe.
+- **The bar:** the five conditions the Chief Risk Officer set. Each row links to how
+  ClaimGuard meets it. Close with "Next: the solution" → Architecture.
+
 ## Part 1: Architecture, 5 min (`/architecture`)
 
 *Demonstrates: solution architecture, design choices, tech stack, depth.*
@@ -47,10 +59,10 @@ Use the numbered section bar at the top of the page.
    the action, and the token service plus gateway check the data. A bug in one layer
    still leaves the other."
 6. **Design decisions**, only if asked, or pick one (ADR-011 and ADR-012 are the
-   additions). Point out the two "revised while
-   building" notes: they show decisions made from evidence, not from a plan.
-7. **What we learned.** Pick two or three rows (Agno Team modes, Agno failed steps, the
-   FlightRecorder chain fork, Harbor without Docker). This section is the "learning new frameworks" criterion.
+   additions). Two notes show judgement: ADR-001 (Workflow or Team: the right tool for a
+   fixed, regulated process) and ADR-006 (Harbor without Docker, decided from evidence).
+7. **What we learned.** Pick two or three rows (Agno orchestration, Agno failed steps, the
+   FlightRecorder chain fork, the two bugs Harbor caught on the final code). This section is the "learning new frameworks" criterion.
 
 ## Part 2: Happy path, 3 min (`/live`)
 
