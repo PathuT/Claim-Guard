@@ -17,6 +17,7 @@ export const TECH: Tech[] = [
   { id: "agno", name: "Agno", role: "Agents with typed outputs, a deterministic Workflow, served by AgentOS" },
   { id: "llm", name: "LLM (Groq)", role: "Model behind every agent — swappable (Groq / Gemini / Claude)" },
   { id: "python", name: "Deterministic Python", role: "Settlement maths and tiering — never left to an LLM" },
+  { id: "guardrails", name: "Guardrails (code)", role: "Deterministic safety checks around the LLM: hidden-instruction scan, every ₹ amount in the explanation verified" },
   { id: "agt", name: "Microsoft AGT", role: "Agent Governance Toolkit: policy check on every tool call" },
   { id: "ed25519", name: "Ed25519 identity", role: "Each agent signs who it is before asking for data" },
   { id: "jwt", name: "PyJWT · EdDSA", role: "Short-lived, single-scope tokens (≤ 300 s)" },
@@ -33,6 +34,7 @@ export const LAYER_TECH: Record<string, string> = {
   agent: "agno",
   llm: "llm",
   rules: "python",
+  guardrail: "guardrails",
   governance: "agt",
   identity: "ed25519",
   token: "jwt",
@@ -51,6 +53,7 @@ export const LAYER_LABEL: Record<string, string> = {
   agent: "AGENT",
   llm: "LLM",
   rules: "RULES",
+  guardrail: "GUARD",
   governance: "GOVERN",
   identity: "IDENTITY",
   token: "TOKEN",
@@ -82,6 +85,14 @@ export const CHAPTERS: Chapter[] = [
     tech: ["nextjs", "fastapi", "pypdf", "postgres"],
   },
   {
+    id: "doc-guardrail",
+    steps: ["doc_guardrail"],
+    title: "Guardrail: hidden-instruction scan",
+    narration:
+      "Before any AI agent sees the paperwork, plain code scans every document's extracted text for instruction-like phrases — the kind hidden in white-on-white text to talk an agent into paying. A match doesn't stop the agents (the text stays data, never instructions), but a flagged claim can never be auto-paid: it always ends with a human officer.",
+    tech: ["guardrails"],
+  },
+  {
     id: "intake",
     steps: ["intake"],
     title: "An AI agent reads the paperwork",
@@ -107,10 +118,11 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     id: "coverage",
-    steps: ["coverage"],
-    title: "Explained in plain language",
-    narration: "The coverage agent writes the explanation the policyholder will read. It can describe the numbers; it cannot change them.",
-    tech: ["agno", "llm"],
+    steps: ["coverage", "explanation_guardrail"],
+    title: "Explained in plain language — and checked",
+    narration:
+      "The coverage agent writes the explanation the policyholder will read. It can describe the numbers; it cannot change them. A guardrail in code then checks every ₹ amount in the text against the settlement — if the explanation mentions money the settlement doesn't contain, it is replaced before the policyholder sees it.",
+    tech: ["agno", "llm", "guardrails"],
   },
   {
     id: "fraud",
@@ -171,6 +183,7 @@ export const RULES: [string, string][] = [
   ["GOV-001", "Tool not in the agent's allowlist"],
   ["GOV-002", "Per-request tool-call budget exceeded (circuit breaker)"],
   ["GOV-003", "Scope not in the agent × collection matrix (token service)"],
+  ["GOV-004", "Automated payout while compliance has frozen automated payouts (kill switch)"],
   ["ID-001", "Identity assertion missing, bad signature or older than 30 s"],
   ["TRUST-001", "Agent trust score below the scope's threshold"],
   ["PAY-001", "Payout amount ≠ assessed payable"],

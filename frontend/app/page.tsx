@@ -1,11 +1,13 @@
 import Link from "next/link";
 
-const FLOW: { label: string; kind: "input" | "agent" | "code" | "human" }[] = [
+const FLOW: { label: string; kind: "input" | "agent" | "code" | "guard" | "human" }[] = [
   { label: "Hospital PDFs (untrusted)", kind: "input" },
+  { label: "Injection guardrail", kind: "guard" },
   { label: "Intake agent", kind: "agent" },
   { label: "Medical reviewer agent", kind: "agent" },
   { label: "Settlement (code)", kind: "code" },
   { label: "Coverage agent", kind: "agent" },
+  { label: "Explanation guardrail", kind: "guard" },
   { label: "Fraud agent", kind: "agent" },
   { label: "Tier T2 / T3 (code)", kind: "code" },
   { label: "Governed payout — or a human officer", kind: "human" },
@@ -15,6 +17,7 @@ const KIND_STYLE: Record<string, string> = {
   input: "border-destructive/40 bg-destructive/5 text-destructive",
   agent: "border-chart-1/40 bg-chart-1/10 text-card-foreground",
   code: "border-success/40 bg-success/10 text-card-foreground",
+  guard: "border-chart-2/50 bg-chart-2/10 text-card-foreground",
   human: "border-warning/50 bg-warning/10 text-card-foreground",
 };
 
@@ -33,10 +36,17 @@ const START = [
   },
 ];
 
+const EXTRAS = [
+  { href: "/live", title: "Prompt-injection guardrail", description: "Hidden instructions in a PDF are flagged before any agent runs. A flagged claim can never be auto-paid." },
+  { href: "/live", title: "Anti-hallucination guardrail", description: "Every ₹ amount in the customer explanation is checked against the settlement, and replaced if it was invented." },
+  { href: "/compliance", title: "Payout kill switch", description: "Compliance freezes automated payouts in one click. The toggle is governed and audited, and officer payouts still work." },
+  { href: "/live", title: "Cost & token meter", description: "LLM calls, tokens, time in the model and governance decisions for every run, measured from the spans." },
+];
+
 const ROLES = [
   { href: "/policyholder", title: "Policyholder", description: "Submit a claim with the hospital PDFs; get a decision and a breakdown citing the policy clause for every deduction." },
   { href: "/officer", title: "Claims officer", description: "Decide the T3 queue: findings, fraud flags and clauses; audited break-glass for the discharge summary." },
-  { href: "/compliance", title: "Compliance", description: "Hash-chain integrity, denials by rule, activity by agent, break-glass use, and the full audit log." },
+  { href: "/compliance", title: "Compliance", description: "Payout kill switch (GOV-004), hash-chain integrity, denials by rule, activity by agent, break-glass use, and the full audit log." },
   { href: "/pipeline", title: "Agent pipeline", description: "Each workflow step's stored output for one claim, and which steps made governed, audited calls." },
 ];
 
@@ -64,9 +74,21 @@ export default function Home() {
           ))}
         </ol>
         <p className="mt-3 text-xs text-muted-foreground">
-          Blue = Agno agent (LLM) · green = deterministic code · amber = money or a human decision. Every data access and
+          Blue = Agno agent (LLM) · green = deterministic code · orange = guardrail (code) · amber = money or a human decision. Every data access and
           state change on the way passes governance → token service → data gateway.
         </p>
+      </section>
+
+      <section>
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Added beyond the brief</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {EXTRAS.map((x) => (
+            <Link key={x.title} href={x.href} className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40">
+              <span className="text-sm font-semibold text-card-foreground">{x.title}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{x.description}</span>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">

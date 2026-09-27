@@ -16,9 +16,9 @@ import {
   submitNewClaim,
 } from "@/lib/api";
 import { formatInr, humanizeStatus, severityStyle, statusStyle } from "@/lib/format";
-import { ATTACK_STEPS, CHAPTERS, type Chapter, MILESTONES, TECH } from "@/lib/liveRun";
+import { ATTACK_STEPS, CHAPTERS, type Chapter, MILESTONES, RULE_TEXT, TECH } from "@/lib/liveRun";
 import { EvalsPanel } from "./EvalsPanel";
-import { LiveConsole, type LogLine, TechStrip } from "./LiveConsole";
+import { LiveConsole, type LogLine, RunMeter, TechStrip } from "./LiveConsole";
 import { StartPanel } from "./StartPanel";
 import { Requirements } from "./Requirements";
 import { SystemFlow } from "./SystemFlow";
@@ -80,8 +80,15 @@ export default function LiveRunPage() {
     setError(null);
   }
 
-  function log(layer: string, title: string, detail: string | null = null, level = "info", kind: "log" | "trace" = "log") {
-    const line: LogLine = { id: nextId.current++, t: performance.now() - startedAt.current, kind, layer, level, title, detail };
+  function log(
+    layer: string,
+    title: string,
+    detail: string | null = null,
+    level = "info",
+    kind: "log" | "trace" = "log",
+    data: Record<string, unknown> = {},
+  ) {
+    const line: LogLine = { id: nextId.current++, t: performance.now() - startedAt.current, kind, layer, level, title, detail, data };
     setLines((prev) => [...prev, line]);
   }
 
@@ -96,14 +103,16 @@ export default function LiveRunPage() {
         break;
       case "log":
       case "trace":
-        log(event.layer, event.title, event.detail, event.level, event.kind);
+        log(event.layer, event.title, event.detail, event.level, event.kind, event.data ?? {});
         break;
       case "step":
         setStep(event.step, event.status, event.summary, event.data);
         break;
       case "result":
         setTraceId(event.trace_id);
-        setElapsedMs(event.elapsed_ms);
+        // Keep the claim run's end-to-end time: the red-team replay that may
+        // follow has its own (much shorter) result and must not replace it.
+        setElapsedMs((prev) => prev ?? event.elapsed_ms);
         onResult?.(event.result);
         break;
       case "error":
@@ -236,6 +245,8 @@ export default function LiveRunPage() {
   }
 
   const started = phase !== "idle";
+  const payoutRefusedBy = payoutRefusal(lines);
+  const replacedExplanation = guardrailExplanation(lines);
 
   return (
     <div className="relative left-1/2 flex w-[min(1400px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-6">
@@ -263,6 +274,7 @@ export default function LiveRunPage() {
                 </span>
               </div>
             </div>
+            <RunMeter lines={lines} elapsedMs={elapsedMs} running={busy} runStarted={claimId != null} />
             <TechStrip lines={lines} />
           </section>
 
@@ -282,9 +294,11 @@ export default function LiveRunPage() {
                   result={result}
                   audit={audit}
                   traceId={traceId}
+                  payoutRefusedBy={payoutRefusedBy}
+                  replacedExplanation={replacedExplanation}
                 />
               ))}
-              {result && <Outcome result={result} claimId={claimId} />}
+              {result && <Outcome result={result} claimId={claimId} payoutRefusedBy={payoutRefusedBy} />}
               {result && (
                 <AttackChapter
                   poisoned={poisoned}
@@ -312,7 +326,7 @@ export default function LiveRunPage() {
                   ))}
                 </div>
                 <div className="min-h-0 flex-1">
-                  {panel === "log" ? <LiveConsole lines={lines} running={busy} /> : <Requirements lines={lines} />}
+                  {panel === "log" ? <LiveConsole lines={lines} running={busy} /> : <Requirements lines={lines} steps={steps} />}
                 </div>
               </div>
             </div>
@@ -327,6 +341,24 @@ export default function LiveRunPage() {
   );
 }
 
+/** The rule that refused the automatic (T2) payout, if governance did —
+ * the supervisor then falls back to a human officer. Its detail line is
+ * "<RULE-ID>: <reason>". */
+function payoutRefusal(lines: LogLine[]): string | null {
+  const line = lines.find((l) => l.layer === "governance" && l.level === "deny" && /Payout refused by governance/.test(l.title));
+  if (!line) return null;
+  const id = line.detail?.split(":")[0]?.trim() ?? "";
+  return /^[A-Z][A-Z0-9-]+$/.test(id) ? id : "unspecified rule";
+}
+
+/** The explanation the guardrail put in place of the agent's draft, carried
+ * on its "guardrail" log event (the explanation_guardrail step itself only
+ * reports ok / unexpected_amounts / replaced). */
+function guardrailExplanation(lines: LogLine[]): string | null {
+  const line = lines.find((l) => l.layer === "guardrail" && typeof l.data?.explanation === "string");
+  return line ? (line.data.explanation as string) : null;
+}
+
 function chapterStatus(chapter: Chapter, steps: Record<string, StepState>, result: RunResult | null, phase: Phase): string {
   if (chapter.id === "trail") return result ? "done" : phase === "idle" ? "pending" : "pending";
   const states = chapter.steps.map((s) => steps[s]?.status).filter(Boolean) as string[];
@@ -334,6 +366,9 @@ function chapterStatus(chapter: Chapter, steps: Record<string, StepState>, resul
   if (states.includes("blocked")) return "blocked";
   const last = steps[chapter.steps[chapter.steps.length - 1]]?.status;
   if (last === "done" || last === "skipped") return "done";
+  // A finished run whose chapter steps all completed is done even if a
+  // later step of that chapter was never reported.
+  if (result && states.every((s) => s === "done" || s === "skipped")) return "done";
   return "active";
 }
 
@@ -352,6 +387,8 @@ function ChapterCard({
   result,
   audit,
   traceId,
+  payoutRefusedBy,
+  replacedExplanation,
 }: {
   index: number;
   chapter: Chapter;
@@ -360,6 +397,8 @@ function ChapterCard({
   result: RunResult | null;
   audit: AuditEntry[] | null;
   traceId: string | null;
+  payoutRefusedBy: string | null;
+  replacedExplanation: string | null;
 }) {
   const badge = STATUS_BADGE[status] ?? STATUS_BADGE.pending;
   const summaries = chapter.steps.map((s) => steps[s]?.summary).filter(Boolean) as string[];
@@ -391,7 +430,10 @@ function ChapterCard({
       {summaries.length > 0 && (
         <p className="mt-3 rounded-md bg-secondary px-3 py-2 text-sm font-medium text-card-foreground">{summaries.join(" · ")}</p>
       )}
-      <ChapterDetail chapter={chapter} steps={steps} result={result} audit={audit} traceId={traceId} />
+      <ChapterDetail chapter={chapter} steps={steps} result={result} audit={audit} traceId={traceId}
+        payoutRefusedBy={payoutRefusedBy}
+        replacedExplanation={replacedExplanation}
+      />
 
       <div className="mt-3 flex flex-wrap gap-1">
         {techNames.map((name) => (
@@ -410,14 +452,52 @@ function ChapterDetail({
   result,
   audit,
   traceId,
+  payoutRefusedBy,
+  replacedExplanation,
 }: {
   chapter: Chapter;
   steps: Record<string, StepState>;
   result: RunResult | null;
   audit: AuditEntry[] | null;
   traceId: string | null;
+  payoutRefusedBy: string | null;
+  replacedExplanation: string | null;
 }) {
   const data = (id: string) => steps[id]?.data ?? {};
+
+  if (chapter.id === "doc-guardrail") {
+    if (steps.doc_guardrail?.status !== "done") return null;
+    const d = data("doc_guardrail");
+    const markers = stringList(d.markers);
+    const docs = stringList(d.doc_types);
+    if (!d.flagged) {
+      return (
+        <p className="mt-2 text-xs font-medium text-success">
+          ✓ No instruction-like text in the documents — scanned before any agent read them.
+        </p>
+      );
+    }
+    return (
+      <div className="mt-2 flex flex-col gap-1.5 text-xs">
+        <p className="font-medium text-warning">
+          ⚠ Instruction-like text found{docs.length > 0 ? ` in ${docs.join(", ")}` : ""}:
+        </p>
+        {markers.length > 0 && (
+          <ul className="flex flex-wrap gap-1.5">
+            {markers.map((m) => (
+              <li key={m} className="rounded-full bg-warning/10 px-2 py-0.5 font-mono text-warning">
+                {m}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-muted-foreground">
+          <span className="font-medium text-card-foreground">This claim can never be auto-paid.</span> The agents still read the documents as
+          untrusted data, but whatever they conclude, the payout decision goes to a human claims officer.
+        </p>
+      </div>
+    );
+  }
 
   if (chapter.id === "intake") {
     const items = (data("intake").line_items as { label: string; amount: number }[] | undefined) ?? [];
@@ -469,8 +549,50 @@ function ChapterDetail({
 
   if (chapter.id === "coverage") {
     const explanation = data("coverage").explanation as string | undefined;
-    if (!explanation) return null;
-    return <blockquote className="mt-2 border-l-2 border-border pl-3 text-sm italic text-muted-foreground">{explanation}</blockquote>;
+    const checked = steps.explanation_guardrail?.status === "done";
+    const guard = data("explanation_guardrail");
+    const invented = numberList(guard.unexpected_amounts);
+    const misstated = checked && (guard.ok === false || invented.length > 0);
+    const replaced = checked && guard.replaced === true;
+    if (!explanation && !checked) return null;
+    if (!misstated && !replaced) {
+      return (
+        <>
+          {explanation && <blockquote className="mt-2 border-l-2 border-border pl-3 text-sm italic text-muted-foreground">{explanation}</blockquote>}
+          {checked && <p className="mt-2 text-xs font-medium text-success">✓ Every ₹ amount verified against the settlement.</p>}
+        </>
+      );
+    }
+    // The coverage step carries the agent's own draft; the replacement rides
+    // on the guardrail's log event (and ends up in the final result).
+    const replacement = replacedExplanation ?? (result?.explanation && result.explanation !== explanation ? result.explanation : null);
+    return (
+      <div className="mt-2 flex flex-col gap-2 text-xs">
+        {misstated && explanation?.trim() && (
+          <div>
+            <p className="font-medium text-muted-foreground">The agent&apos;s draft — rejected:</p>
+            <blockquote className="mt-1 border-l-2 border-destructive/50 pl-3 text-sm italic text-muted-foreground line-through decoration-destructive/40">
+              {explanation}
+            </blockquote>
+          </div>
+        )}
+        {misstated ? (
+          <p className="font-medium text-destructive">
+            ✗ Amount(s) not in the settlement: {invented.length > 0 ? invented.map(formatInr).join(", ") : "unverified amount"}
+          </p>
+        ) : (
+          <p className="font-medium text-warning">⚠ The coverage agent returned no explanation.</p>
+        )}
+        <p className={replaced ? "font-medium text-success" : "font-medium text-destructive"}>
+          {replaced
+            ? "Replaced before the policyholder could see it, with a summary built only from the settlement — every ₹ in it is a settlement figure."
+            : "The explanation was NOT replaced — this should be investigated."}
+        </p>
+        {replaced && replacement && (
+          <blockquote className="border-l-2 border-success/50 pl-3 text-sm italic text-muted-foreground">{replacement}</blockquote>
+        )}
+      </div>
+    );
   }
 
   if (chapter.id === "fraud") {
@@ -497,6 +619,25 @@ function ChapterDetail({
           <li key={r}>{r}</li>
         ))}
       </ul>
+    );
+  }
+
+  if (chapter.id === "payout" && payoutRefusedBy) {
+    if (payoutRefusedBy === "GOV-004") {
+      return (
+        <p className="mt-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-card-foreground">Kill switch on — automated payouts are frozen by compliance.</span> Governance refused
+          this payout under <span className="font-mono">GOV-004</span>: no redeploy, no prompt change. Nothing was paid, the refusal is in the
+          hash-chained audit trail, and the claim went to a claims officer, whose approved payouts still go through.
+        </p>
+      );
+    }
+    return (
+      <p className="mt-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+        <span className="font-medium text-card-foreground">Governance refused the automatic payout.</span> Refused by{" "}
+        <span className="font-mono">{payoutRefusedBy}</span>
+        {RULE_TEXT[payoutRefusedBy] ? ` — ${RULE_TEXT[payoutRefusedBy]}` : ""}. Nothing was paid, and the claim fell back to a human officer.
+      </p>
     );
   }
 
@@ -545,7 +686,15 @@ function ChapterDetail({
   return null;
 }
 
-function Outcome({ result, claimId }: { result: RunResult; claimId: string | null }) {
+function stringList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+function numberList(v: unknown): number[] {
+  return Array.isArray(v) ? v.filter((x): x is number => typeof x === "number") : [];
+}
+
+function Outcome({ result, claimId, payoutRefusedBy }: { result: RunResult; claimId: string | null; payoutRefusedBy: string | null }) {
   const paid = result.final_state === "paid";
   const pending = result.final_state === "pending_human";
   return (
@@ -567,9 +716,11 @@ function Outcome({ result, claimId }: { result: RunResult; claimId: string | nul
       <p className="mt-1 text-sm text-muted-foreground">
         {paid
           ? "Every rule passed, the governance layer allowed the payout, and a mock payment was recorded to the account on file."
-          : pending
-            ? "The agents did their work but are not allowed to finish this one alone. A claims officer now sees the findings, flags and clauses and makes the call."
-            : "The claim was stopped before any agent ran — the policyholder is asked to resubmit."}
+          : pending && payoutRefusedBy === "GOV-004"
+            ? "This claim qualified for automatic payment (T2), but compliance has frozen automated payouts (GOV-004 kill switch). The payout was refused and audited; a claims officer now makes the call."
+            : pending
+              ? "The agents did their work but are not allowed to finish this one alone. A claims officer now sees the findings, flags and clauses and makes the call."
+              : "The claim was stopped before any agent ran — the policyholder is asked to resubmit."}
       </p>
       {claimId && (
         <div className="mt-3 flex flex-wrap gap-3 text-sm">

@@ -463,3 +463,32 @@ export interface ComplianceSummary {
 export function getComplianceSummary(): Promise<ComplianceSummary> {
   return request(`${AGENTOS_URL}/compliance/summary`);
 }
+
+// --- Payout kill switch (backend/api/governance_controls.py, GOV-004) ---
+
+/** Freeze state for AUTOMATED payouts. `fail_closed` is true when the
+ * backend could not read its stored state and is therefore reporting
+ * FROZEN (docs/adr/012-payout-kill-switch.md). */
+export interface PayoutFreezeState {
+  frozen: boolean;
+  reason: string | null;
+  set_by: string | null;
+  set_at: string | null;
+  fail_closed: boolean;
+}
+
+export interface PayoutFreezeChange extends PayoutFreezeState {
+  audit_trace_id: string;
+}
+
+export function getPayoutFreeze(): Promise<PayoutFreezeState> {
+  return request(`${AGENTOS_URL}/governance/payout-freeze`);
+}
+
+/** Governed + audited (compliance_officer / set_payout_freeze); `reason` is required. */
+export function setPayoutFreeze(req: { frozen: boolean; officer_id: string; reason: string }): Promise<PayoutFreezeChange> {
+  return request(`${AGENTOS_URL}/governance/payout-freeze`, {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}

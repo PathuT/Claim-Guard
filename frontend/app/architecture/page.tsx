@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 const SECTIONS = [
   { id: "problem", label: "Problem" },
   { id: "brief", label: "Brief → built" },
+  { id: "added", label: "What we added" },
   { id: "architecture", label: "Architecture" },
   { id: "lifecycle", label: "Request lifecycle" },
   { id: "users", label: "User flows" },
@@ -37,9 +38,9 @@ export default function ArchitecturePage() {
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric value="4 + 1" label="Agno agents + governed payout, in one Agno Workflow" />
-          <Metric value="15" label="policy rules enforced in code (AGT + token service)" />
+          <Metric value={String(RULES.length)} label="policy rules enforced in code (AGT + token service), incl. a payout kill switch" />
           <Metric value="≤ 300 s" label="lifetime of any data credential; 60 s for money" />
-          <Metric value="80 + 10" label="security tests + Harbor end-to-end scenarios" />
+          <Metric value="140 + 10" label="backend tests (no agents needed) + Harbor end-to-end scenarios" />
         </div>
       </header>
 
@@ -54,7 +55,8 @@ export default function ArchitecturePage() {
 
       <Problem />
       <BriefVsBuilt />
-      <Section id="architecture" n={3} title="System architecture" lead="Five trust zones, left to right: from untrusted input to restricted data. A request can only move through them in order — no governance approval, no credential; no credential, no data.">
+      <Added />
+      <Section id="architecture" n={4} title="System architecture" lead="Five trust zones, left to right: from untrusted input to restricted data. A request can only move through them in order — no governance approval, no credential; no credential, no data.">
         <SystemDiagram />
         <ol className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
           <Legend n="1" text="Console calls AgentOS; the supervisor runs the agents in a fixed order." />
@@ -68,12 +70,13 @@ export default function ArchitecturePage() {
         </ol>
       </Section>
 
-      <Section id="lifecycle" n={4} title="Request lifecycle — one governed data access" lead="The exact path every agent read or write takes. Two independent layers must both say yes: the governance adapter (is this ACTION allowed?) and the token service + gateway (may this agent read THIS data?). A bug or bypass in one layer still leaves the other.">
+      <Section id="lifecycle" n={5} title="Request lifecycle — one governed data access" lead="The exact path every agent read or write takes. Two independent layers must both say yes: the governance adapter (is this ACTION allowed?) and the token service + gateway (may this agent read THIS data?). A bug or bypass in one layer still leaves the other.">
         <SequenceDiagram />
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Callout title="Trusted context, never arguments" text="PAY rules compare what the agent asks for against values the adapter loads from Postgres (assessed payable, registered account). An injected ₹4,50,000 can be requested — it can never be the value it is checked against." />
           <Callout title="Least privilege, per request" text="One token = one agent + one collection/action + one claim + one request. Medical records 120 s, bank details and payments 60 s, everything else 300 s. All of a request's tokens are revoked the moment it reaches pending_human or a terminal state." />
           <Callout title="Fail closed" text="Any error in policy evaluation, identity verification or token validation is a deny with a named reason code — the agent receives a structured denial and the claim routes to a human." />
+          <Callout title="A kill switch in the same path" text="GOV-004 runs first among the payout rules on every execute_payout. While compliance has frozen automated payouts, an agent's payout is denied and audited, and the claim goes to an officer. The freeze is re-read on every check — no restart — and a damaged control reads as frozen." />
         </div>
       </Section>
 
@@ -154,6 +157,7 @@ const BRIEF = [
       "AgentOS wraps the existing API — /agents and /workflows added, nothing removed",
       "Settlement maths in code: every deduction cites its policy clause",
       "Document text passed as delimited UNTRUSTED data, never in system prompts",
+      "Deterministic guardrails around the LLM: a hidden-instruction scan before intake (a flagged claim is forced to T3 — never auto-paid), and every ₹ amount in the customer explanation checked against the settlement (an invented figure means the text is replaced)",
       "Rate-limit resilience: provider retries + exponential backoff; Agno telemetry switched off",
     ],
     evidence: "backend/agents/",
@@ -166,6 +170,7 @@ const BRIEF = [
       "Real Ed25519 agent identities (agentmesh) — tokens only for verified agents",
       "Trust-score gating for sensitive scopes (TRUST-001)",
       "Claim state machine where every transition is itself governed",
+      "GOV-004 kill switch: compliance can freeze automated payouts at runtime — the toggle is itself governed and audited, officer-approved payouts still go through",
       "Audited break-glass for officers to read a discharge summary",
     ],
     evidence: "backend/governance/",
@@ -199,6 +204,7 @@ const BRIEF = [
       "W3C trace-context propagation across 3 services = one trace per claim",
       "Redaction processor before export (medical text, account numbers, names)",
       "Live event stream: every backend operation visible in the UI as it happens",
+      "Per-run meter: LLM calls, prompt / completion tokens and time in the model vs end to end, summed from the streamed spans — measured, not estimated",
     ],
     evidence: "backend/observability/",
   },
@@ -209,6 +215,8 @@ const BRIEF = [
       "Live Run: real PDF upload, narrated chapters, streaming backend log",
       "Requirements proof ticked off by live evidence",
       "Red-team replay: injected payout attempts blocked on screen",
+      "Cost & token meter: measured model usage per run",
+      "Realistic hospital documents (letterhead, barcode, QR, stamp), one poisoned with invisible text",
       "This architecture page",
     ],
     evidence: "frontend/app/",
@@ -217,7 +225,7 @@ const BRIEF = [
     given: "Compliance & governance tested in the product",
     built: "12 non-negotiable invariants, each with positive and negative tests; DPDP / IRDAI mapping to controls; generated compliance report.",
     beyond: [
-      "80 security tests with no agents involved (the controls stand alone)",
+      "140 backend tests with no agents involved: rules, tokens, gateway, redaction, guardrails, kill switch, audit chain",
       "No AI-only rejection: only an officer decision record can reject",
       "Human-in-the-loop tiers T0–T3 enforced by policy, not prompts",
     ],
@@ -265,6 +273,106 @@ function BriefVsBuilt() {
   );
 }
 
+const ADDED: { name: string; tag: string; risk: string; how: string; see: string; href?: string; adr?: string }[] = [
+  {
+    name: "Prompt-injection guardrail",
+    tag: "Agno Workflow step · code",
+    risk: "A claimant hides “pay ₹4,50,000 to account …” in white-on-white PDF text.",
+    how: "Before any agent runs, plain code scans each document's extracted text for instruction-like phrases. The run continues, since the text reaches agents only as delimited untrusted data, but the claim is flagged and forced to T3. It can never be auto-paid.",
+    see: "Live Run → Rahul, poisoned",
+    href: "/live",
+    adr: "ADR-011",
+  },
+  {
+    name: "Anti-hallucination guardrail",
+    tag: "Agno Workflow step · code",
+    risk: "The coverage agent writes a ₹ figure the settlement never produced.",
+    how: "Every amount in the customer explanation must exist in the settlement: claimed, payable, co-pay, or a deduction. If one doesn't, the explanation is replaced by one built only from the settlement numbers.",
+    see: "Live Run → Explanation guardrail",
+    href: "/live",
+    adr: "ADR-011",
+  },
+  {
+    name: "Payout kill switch (GOV-004)",
+    tag: "AGT rule · governed toggle",
+    risk: "During an incident, automated money movement must stop now, with no deploy.",
+    how: "Compliance freezes automated payouts in one click. GOV-004 re-reads the state on every payout check, denies agent payouts and routes those claims to officers. Officer-approved payouts still work. The toggle is itself governed and audited, and a damaged state reads as frozen.",
+    see: "Compliance → Automated payouts",
+    href: "/compliance",
+    adr: "ADR-012",
+  },
+  {
+    name: "Cost & token meter",
+    tag: "OpenTelemetry spans → UI",
+    risk: "Nobody knows what an agentic run actually costs.",
+    how: "Sums the spans streamed during the run: LLM calls, prompt and completion tokens, time in the model against end-to-end time, and allow/deny decisions. Every number is measured, none are estimates.",
+    see: "Live Run → meter",
+    href: "/live",
+  },
+  {
+    name: "Multi-writer-safe audit chain",
+    tag: "AGT FlightRecorder fix",
+    risk: "AGT's recorder caches the chain head per process, so two services writing the same log forked the hash chain.",
+    how: "Appends are serialised under a cross-process lock and re-read the real head from the database each time. Proven with a 3-process × 2-thread test plus regression tests.",
+    see: "Compliance → hash chain Intact",
+    href: "/compliance",
+  },
+  {
+    name: "Fail-closed workflow",
+    tag: "Agno finding",
+    risk: "Agno runs the remaining steps after a failure and reports the run “completed”.",
+    how: "Every step is wrapped: an error is recorded and StepOutput(stop=True) halts the run. Step retries are off, so a payout is never silently re-attempted.",
+    see: "backend/agents/supervisor.py",
+  },
+  {
+    name: "Red-team replay",
+    tag: "real governance path",
+    risk: "“What if an agent had obeyed the injection?”",
+    how: "Replays the injected payout and data grab through the real adapter and token service. PAY-001, PAY-002, DATA-001 and GOV-003 each deny it, then an audit-integrity check runs.",
+    see: "Live Run → Run the red-team attack",
+    href: "/live",
+  },
+  {
+    name: "Live Run + requirements proof",
+    tag: "SSE event stream",
+    risk: "Reviewers can't see inside a backend.",
+    how: "Every backend operation streams to the UI as it happens: agents, LLM calls, governance, identity, tokens, gateway, state and spans. Each brief requirement is ticked by evidence from that run.",
+    see: "Live Run",
+    href: "/live",
+  },
+];
+
+function Added() {
+  return (
+    <Section id="added" n={3} title="What we added beyond the brief, and why" lead="Each addition closes a concrete risk we found while building. None of them depends on the model behaving, and each can be shown live.">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {ADDED.map((a) => (
+          <div key={a.name} className="flex flex-col rounded-md border border-border p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">New</span>
+              {a.adr && <span className="font-mono text-[10px] text-chart-1">{a.adr}</span>}
+            </div>
+            <p className="mt-2 text-sm font-semibold text-card-foreground">{a.name}</p>
+            <p className="text-[11px] text-muted-foreground">{a.tag}</p>
+            <p className="mt-2 text-xs text-card-foreground">
+              <span className="font-medium text-destructive">Risk: </span>
+              {a.risk}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{a.how}</p>
+            {a.href ? (
+              <Link href={a.href} className="mt-auto pt-3 text-xs font-medium text-chart-1 underline">
+                {a.see} →
+              </Link>
+            ) : (
+              <p className="mt-auto pt-3 font-mono text-[11px] text-muted-foreground">{a.see}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 const PERSONAS = [
   {
     who: "Policyholder — Priya / Jyoti",
@@ -301,7 +409,7 @@ const PERSONAS = [
 
 function UserFlows() {
   return (
-    <Section id="users" n={5} title="User flows and the claim lifecycle" lead="Five personas, one shared state machine. Agents can only recommend; the only path to 'rejected' goes through a human.">
+    <Section id="users" n={6} title="User flows and the claim lifecycle" lead="Five personas, one shared state machine. Agents can only recommend; the only path to 'rejected' goes through a human.">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {PERSONAS.map((p) => (
           <div key={p.who} className={`flex flex-col rounded-md border p-4 ${p.danger ? "border-destructive/40 bg-destructive/5" : "border-border"}`}>
@@ -355,7 +463,7 @@ const MATRIX: { agent: string; cells: Record<string, string> }[] = [
 
 function SecurityModel() {
   return (
-    <Section id="security" n={6} title="Security model" lead="docs/security-matrix.md is the single source of truth: the token service, gateway and AGT rules are all derived from it. Anything not listed is denied.">
+    <Section id="security" n={7} title="Security model" lead="docs/security-matrix.md is the single source of truth: the token service, gateway and AGT rules are all derived from it. Anything not listed is denied.">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[52rem] text-left text-xs">
           <thead>
@@ -397,7 +505,7 @@ function SecurityModel() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[3fr_2fr]">
         <div>
-          <p className="mb-2 text-sm font-semibold text-card-foreground">15 policy rules enforced in code</p>
+          <p className="mb-2 text-sm font-semibold text-card-foreground">{RULES.length} policy rules enforced in code</p>
           <div className="grid gap-1.5 sm:grid-cols-2">
             {RULES.map(([id, text]) => (
               <div key={id} className="flex gap-2 rounded-md bg-secondary px-3 py-1.5 text-xs">
@@ -421,6 +529,23 @@ function SecurityModel() {
           <p className="mt-3 text-xs text-muted-foreground">Any failure → 403 with a reason code, a denied span, and nothing returned.</p>
         </div>
       </div>
+
+      <div className="mt-6">
+        <p className="mb-2 text-sm font-semibold text-card-foreground">Guardrails around the model — deterministic code, not prompts</p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Callout
+            title="Hidden-instruction scan (before intake)"
+            text="Plain code scans every document's text for instruction-like phrases, with the same marker list as the upload endpoint. A match does not stop the run — the text still reaches the agents only as delimited untrusted data — but the claim is flagged and forced to T3, so it can never be auto-paid."
+          />
+          <Callout
+            title="Money check on the explanation (after coverage)"
+            text="Every ₹ amount the coverage agent writes must be one the settlement contains: claimed, payable, co-pay, each deduction. If any is not, the explanation is replaced with a summary built only from the settlement, so an invented figure never reaches the policyholder or the officer."
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Guardrails narrow what a model can get wrong; the policy rules above decide what any agent is allowed to do. Neither depends on the model behaving.
+        </p>
+      </div>
     </Section>
   );
 }
@@ -436,11 +561,13 @@ const DECISIONS = [
   { adr: "008", title: "Human in the loop by tiers", chose: "T0–T3; auto-pay only ≤ ₹50,000 with no flags; rejections always human — enforced by PAY-003/004 and STATE-001.", over: "Full autonomy (accountability risk), human review of everything (removes the benefit)." },
   { adr: "009", title: "Next.js only, no NestJS", chose: "Next.js console calling the Python APIs directly.", over: "NestJS BFF (second runtime, extra trust boundary, no gain), Streamlit (weak multi-role UX)." },
   { adr: "010", title: "Identity → trust → token chain", chose: "Tokens only for a verified AGT identity; sensitive scopes need a minimum trust score, per request.", over: "JWTs keyed on agent name (no cryptographic proof), global trust scores (one attacked claim could lock an agent out everywhere)." },
+  { adr: "011", title: "Deterministic guardrails around the model", chose: "Two plain-code Workflow steps: a hidden-instruction scan that forces T3 (never auto-pay), and a check that every ₹ amount in the explanation exists in the settlement.", over: "Rejecting flagged claims (breaks STATE-001, hurts honest claimants), stripping the text (hides evidence), an LLM judge (probabilistic, attackable, costs tokens)." },
+  { adr: "012", title: "Payout kill switch (GOV-004)", chose: "A governed, audited compliance toggle, re-read on every payout check, that freezes automated payouts only. Fails closed on a damaged state.", over: "An env flag (restart, no audit), an in-memory flag (not shared across processes), freezing officer payouts too (blocks the human path during an incident)." },
 ];
 
 function Decisions() {
   return (
-    <Section id="decisions" n={7} title="Design decisions (ADRs)" lead="Each choice is recorded with the alternatives considered and why they lost — docs/adr/001–010.">
+    <Section id="decisions" n={8} title="Design decisions (ADRs)" lead="Each choice is recorded with the alternatives considered and why they lost — docs/adr/001–012.">
       <div className="grid gap-3 md:grid-cols-2">
         {DECISIONS.map((d) => (
           <div key={d.adr} className="rounded-md border border-border p-4">
@@ -469,6 +596,7 @@ const LEARNED = [
   { fw: "Agno Workflows", finding: "When a step raises, Agno logs a warning, runs the remaining steps anyway and reports the run 'completed' — verified in agno 3.0.11.", action: "Every step wrapped to fail closed: the error is recorded and StepOutput(stop=True) halts the run; step retries disabled so a payout is never silently re-attempted." },
   { fw: "Agno AgentOS", finding: "Agents and Workflows default to telemetry=True, and AgentOS can wrap an existing FastAPI app.", action: "Telemetry off everywhere; AgentOS wraps the API with base_app, preserving every existing route. Started without trusted context, the workflow refuses at step 1." },
   { fw: "Microsoft AGT", finding: "v4.1 (public preview) ships no Agno integration.", action: "Built a custom adapter on AGT's framework-agnostic core; used its FlightRecorder audit chain and agentmesh Ed25519 identities as-is instead of reimplementing them." },
+  { fw: "AGT FlightRecorder", finding: "It caches the chain head per process. With AgentOS and the officer API both writing, the hash chain forked and integrity verification failed.", action: "ChainSafeFlightRecorder: appends under a cross-process lock, re-reading the real head each time. Proven with a 3-process × 2-thread test." },
   { fw: "Phoenix", finding: "arize-phoenix-otel's register() crashes against the current OTLP exporter (reads an attribute that no longer exists).", action: "Built the TracerProvider and exporter directly with the OpenTelemetry SDK — verified identical project placement via Phoenix's own API." },
   { fw: "OpenInference", finding: "A second, unredacted copy of medical text lived in per-message LLM attributes, found by searching a real trace.", action: "Role-aware redaction: system prompts stay readable, user/assistant content is redacted." },
   { fw: "OpenTelemetry", finding: "Trace context wasn't propagating — the governance span had closed before the HTTP calls ran.", action: "Added a parent tool.call span around the whole round trip: one trace id across 3 services." },
@@ -479,7 +607,7 @@ const LEARNED = [
 
 function Learned() {
   return (
-    <Section id="learned" n={8} title="Learning the frameworks — what we found, what we did" lead="Every framework here is new or in preview. These are real findings from building and testing against the live stack, not assumptions.">
+    <Section id="learned" n={9} title="Learning the frameworks — what we found, what we did" lead="Every framework here is new or in preview. These are real findings from building and testing against the live stack, not assumptions.">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[48rem] text-left text-sm">
           <thead className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -508,7 +636,8 @@ const TOUR = [
   { t: "5 min", title: "Architecture (this page)", text: "Problem → brief vs built → system diagram → one governed call → decisions.", href: "#problem" },
   { t: "3 min", title: "Happy path, live", text: "Live Run → Jyoti — Dengue fever → Upload & run. Narrate the chapters; point at identity → token → gateway in the backend log. ₹37,300 paid.", href: "/live" },
   { t: "1 min", title: "Requirements proof", text: "Switch the right panel to Requirements proof — each requirement ticked by evidence from that run.", href: "/live" },
-  { t: "4 min", title: "The attack", text: "Rahul — Poisoned discharge summary. Open the PDF (looks clean). Run: injection detected, nothing auto-paid. Then Run the red-team attack: PAY-001, PAY-002, DATA-001, GOV-003.", href: "/live" },
+  { t: "4 min", title: "The attack", text: "Rahul — Poisoned discharge summary. Open the PDF (looks clean). Run: the hidden-instruction guardrail flags it, so it can never be auto-paid. Then Run the red-team attack: PAY-001, PAY-002, DATA-001, GOV-003.", href: "/live" },
+  { t: "2 min", title: "Payout kill switch", text: "Compliance → Automated payouts → Freeze (reason required). Run Jyoti again: GOV-004 denies the payout and the claim goes to an officer. Unfreeze.", href: "/compliance" },
   { t: "2 min", title: "Human in the loop", text: "Officer view: a T3 claim with findings and clauses; break-glass with a reason; approve → governed payout.", href: "/officer" },
   { t: "1 min", title: "Audit & compliance", text: "Compliance view: every allow / deny by rule id, hash chain intact.", href: "/compliance" },
   { t: "1 min", title: "One trace per claim", text: "Phoenix: search the trace id from the Live Run header — every service in one trace, medical text redacted.", href: "http://localhost:6006" },
@@ -517,7 +646,7 @@ const TOUR = [
 
 function Tour() {
   return (
-    <Section id="tour" n={9} title="Demo tour" lead="The order to walk through the product after this page — about 18 minutes, plus questions.">
+    <Section id="tour" n={10} title="Demo tour" lead="The order to walk through the product after this page — about 20 minutes, plus questions.">
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {TOUR.map((step, i) => {
           const external = step.href.startsWith("http");

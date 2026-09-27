@@ -3,7 +3,8 @@
 
 Wraps AGT's real `agent_control_plane.FlightRecorder` for the hash-chained
 audit log (docs/CLAUDE.md invariant 10) and implements the GOV/PAY/STATE/DATA
-rules from docs/security-matrix.md §8 as plain Python predicates in
+rules (plus GOV-004, the compliance payout kill switch — ADR-012) from
+docs/security-matrix.md §8 as plain Python predicates in
 governance/rules.py (see ADR-002's "Integration approach" section for why we
 did not register them with AGT's PolicyEngine.add_custom_rule() directly —
 our own orchestration needed richer per-rule denial reasons than a bare bool).
@@ -31,6 +32,7 @@ from opentelemetry import trace
 
 from observability.live_events import emit
 
+from .controls import read_payout_freeze
 from .flight_recorder import get_recorder
 from .rules import RuleResult, run_all_rules
 from .tool_allowlist import TOOL_CALL_BUDGET_PER_REQUEST, tool_allowed
@@ -121,7 +123,17 @@ def check_and_audit(ctx: ToolCallContext) -> str:
             _deny(recorder, trace_id, span, result)
             raise GovernanceDenied(result.rule_id, result.reason)
 
-        # PAY-*, STATE-*, DATA-* rules — each is a no-op (returns allowed=True)
+        # GOV-004 (compliance kill switch): the freeze state is fetched here,
+        # from the trusted controls store, on every execute_payout check —
+        # and it REPLACES any "payout_freeze" the caller put in `trusted`,
+        # so no caller (let alone an agent's args) can claim "not frozen".
+        # A new dict rather than mutating the caller's own object.
+        if ctx.tool_name == "execute_payout":
+            freeze = read_payout_freeze()
+            ctx.trusted = {**ctx.trusted, "payout_freeze": freeze}
+            span.set_attribute("payout_freeze", freeze.frozen)
+
+        # GOV-004, PAY-*, STATE-*, DATA-* rules — each is a no-op (returns allowed=True)
         # for tool calls it doesn't apply to (e.g. PAY rules skip anything
         # that isn't execute_payout).
         for result in run_all_rules(ctx):
@@ -136,6 +148,7 @@ def check_and_audit(ctx: ToolCallContext) -> str:
             "governance",
             f"AGT policy check ALLOW — {ctx.agent_id} → {ctx.tool_name}",
             f"GOV-001 allowlist ✓ · GOV-002 budget {_tool_call_counts[ctx.req_id]}/{TOOL_CALL_BUDGET_PER_REQUEST} · "
+            f"{'GOV-004 payout freeze ✓ · ' if ctx.tool_name == 'execute_payout' else ''}"
             f"PAY/STATE/DATA rules ✓ · audit entry {trace_id[:8]} appended to hash-chained FlightRecorder",
             level="success",
             data={"agent_id": ctx.agent_id, "tool_name": ctx.tool_name, "audit_id": trace_id},

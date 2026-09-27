@@ -112,6 +112,14 @@ Any failure → 403 with a reason code, audit entry, and `gateway.access` span w
 
 Any tool not in the agent's row is denied, even if the tool exists.
 
+Human console roles whose actions are routed through the same adapter so they land in
+the same audit log (they are not agents and hold no data scopes):
+
+| Role | Governed tools |
+|---|---|
+| `claims_officer` | `break_glass_discharge_summary_access` |
+| `compliance_officer` | `set_payout_freeze` (GOV-004 kill switch) |
+
 ---
 
 ## 8. AGT policy rules
@@ -123,6 +131,7 @@ Rule IDs appear in audit entries, spans, and Harbor verifiers.
 | **GOV-001** | Tool not in agent's allowlist | Deny |
 | **GOV-002** | Per-request tool-call budget exceeded (e.g. 40 calls) | Deny (circuit breaker) |
 | **GOV-003** | Requested scope not in matrix for this agent | Deny |
+| **GOV-004** | `execute_payout` while compliance has frozen automated payouts, and no officer approval record. Freeze state is read by the adapter from the governance controls store, never from the caller; an unreadable store counts as frozen (fail closed). See ADR-012 | Deny, route to human |
 | **PAY-001** | Payout amount ≠ assessed payable for the claim | Deny |
 | **PAY-002** | Payout account ≠ registered account for the claim's policy | Deny |
 | **PAY-003** | Payout > ₹50,000 without an officer approval record | Deny |
@@ -167,7 +176,7 @@ the agent's arguments**.
 |---|---|
 | `policyholder` | Submit claims for own policy, view own claims and breakdowns |
 | `claims_officer` | View T3 queue, findings, flags, clauses; decide; open full discharge summary via **audited break-glass** (reason required) |
-| `compliance_officer` | View audit log, denials, medical-data access report, compliance report; cannot decide claims |
+| `compliance_officer` | View audit log, denials, medical-data access report, compliance report; **freeze / resume automated payouts** (GOV-004 kill switch, reason required, audited as `set_payout_freeze`); cannot decide claims |
 | `platform_engineer` | View traces and eval results; no claim data in console |
 
 ## 10. Keys and secrets

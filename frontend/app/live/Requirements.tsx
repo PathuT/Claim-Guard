@@ -1,10 +1,12 @@
 "use client";
 
+import { formatInr } from "@/lib/format";
 import type { LogLine } from "./LiveConsole";
 
 /** The project's requirements (docs/CLAUDE.md's non-negotiable invariants
- * plus the core functional asks), each ticked off by concrete evidence
- * from THIS run's live backend log — not a static claim. A requirement a
+ * plus the core functional asks and the deterministic guardrails), each
+ * ticked off by concrete evidence from THIS run's live backend log and step
+ * events — not a static claim. A requirement a
  * single claim run can't exercise (e.g. delegation) says where it is
  * proven instead: the security test suite / Harbor evals. */
 
@@ -13,14 +15,19 @@ interface Evidence {
   proof: string;
 }
 
+/** Chapter progress from the backend's step() events, keyed by step id. */
+export type StepEvidence = Record<string, { status: string; summary?: string | null; data: Record<string, unknown> }>;
+
 interface Requirement {
   id: string;
   title: string;
-  check: (lines: LogLine[]) => Evidence;
+  check: (lines: LogLine[], steps: StepEvidence) => Evidence;
 }
 
 const has = (lines: LogLine[], pred: (l: LogLine) => boolean) => lines.filter(pred);
 const text = (l: LogLine) => `${l.title} ${l.detail ?? ""}`;
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+const numbers = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === "number") : []);
 
 function proven(proof: string): Evidence {
   return { status: "proven", proof };
@@ -158,11 +165,50 @@ const REQUIREMENTS: Requirement[] = [
       return done.length ? proven(done.map((l) => l.title.replace(/^Fraud /, "")).join("; ")) : pending("waiting for the fraud agent");
     },
   },
+  {
+    id: "G1",
+    title: "Prompt-injection guardrail flags hidden instructions",
+    check: (lines, steps) => {
+      const scan = steps.doc_guardrail;
+      if (scan?.status === "done") {
+        const markers = strings(scan.data.markers);
+        const docs = strings(scan.data.doc_types);
+        return scan.data.flagged
+          ? proven(`flagged ${markers.length ? markers.map((m) => `“${m}”`).join(", ") : "instruction-like text"}${docs.length ? ` in ${docs.join(", ")}` : ""} — this claim can never be auto-paid`)
+          : proven(`clean scan${docs.length ? ` of ${docs.join(", ")}` : ""} — no instruction-like text found`);
+      }
+      const event = has(lines, (l) => l.layer === "guardrail" && (Array.isArray(l.data?.markers) || /marker|instruction|clean/i.test(text(l))))[0];
+      if (event) return proven(event.title);
+      return pending(scan?.status === "active" ? "scanning the documents…" : "waiting for the document scan (runs before intake)");
+    },
+  },
+  {
+    id: "G2",
+    title: "Customer explanation can't misstate money",
+    check: (lines, steps) => {
+      const guard = steps.explanation_guardrail;
+      if (guard?.status === "done") {
+        const invented = numbers(guard.data.unexpected_amounts);
+        if (guard.data.ok !== false && invented.length === 0) {
+          return guard.data.replaced
+            ? proven("agent returned no explanation — a summary built only from the settlement was used instead")
+            : proven("every ₹ amount in the explanation verified against the settlement");
+        }
+        return guard.data.replaced
+          ? proven(`explanation mentioned ${invented.map(formatInr).join(", ") || "an amount"} not in the settlement — replaced before the policyholder saw it`)
+          : pending(`unverified amount(s) ${invented.map(formatInr).join(", ")} detected but the explanation was not replaced`);
+      }
+      const event = has(lines, (l) => l.layer === "guardrail" && /explanation/i.test(text(l)))[0];
+      if (event) return proven(event.title);
+      return pending(guard?.status === "active" ? "checking every ₹ amount…" : "waiting for the coverage explanation");
+    },
+  },
 ];
 
-export function Requirements({ lines }: { lines: LogLine[] }) {
-  const results = REQUIREMENTS.map((r) => ({ ...r, evidence: r.check(lines) }));
+export function Requirements({ lines, steps = {} }: { lines: LogLine[]; steps?: StepEvidence }) {
+  const results = REQUIREMENTS.map((r) => ({ ...r, evidence: r.check(lines, steps) }));
   const provenCount = results.filter((r) => r.evidence.status === "proven").length;
+  const testsCount = results.filter((r) => r.evidence.status === "tests").length;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
@@ -170,6 +216,7 @@ export function Requirements({ lines }: { lines: LogLine[] }) {
         <span className="text-sm font-semibold text-card-foreground">Requirements — proven live</span>
         <span className="text-xs tabular-nums text-muted-foreground">
           {provenCount}/{results.length} evidenced in this run
+          {testsCount > 0 && ` · ${testsCount} proven by the test suite`}
         </span>
       </div>
       <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">

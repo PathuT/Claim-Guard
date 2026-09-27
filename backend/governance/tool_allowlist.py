@@ -23,6 +23,13 @@ AGENT_TOOLS: dict[str, set[str]] = {
     # agent tool call would (docs/plan.md M8's "audited break-glass"),
     # rather than needing a second, parallel logging path.
     "claims_officer": {"break_glass_discharge_summary_access"},
+    # Also a human console role, not an agent (security-matrix.md §9): the
+    # compliance officer's payout kill switch (GOV-004, ADR-012). Routed
+    # through check_and_audit() for the same reason as break-glass — every
+    # freeze/resume, with its reason, lands in the same hash-chained audit
+    # log — and no agent holds this tool, so GOV-001 denies any agent that
+    # tries to lift the freeze itself.
+    "compliance_officer": {"set_payout_freeze"},
 }
 
 # GOV-002: per-request tool-call budget, "e.g. 40 calls" (security-matrix.md §8).

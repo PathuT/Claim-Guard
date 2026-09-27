@@ -1,344 +1,404 @@
 # ClaimGuard
 
-A multi-agent system that processes health insurance **reimbursement claims** end to
-end — reading hospital documents, medical review, coverage assessment, fraud
-screening, and payout. The insurance logic is intentionally simple; the real subject
-of this project is **governance, compliance, and observability for autonomous agents**
-that handle medical data and money.
+**Governed, observable agentic AI for health-insurance reimbursement claims.**
 
-All data is synthetic. No real people, hospitals, medical records, or payments. Ever.
+A policyholder uploads a hospital bill and discharge summary as PDFs. AI agents read
+them, review the medical case, calculate the payable amount, screen for fraud, and
+either pay automatically or hand the claim to a human officer. Every step is
+governed, least-privileged, audited and traced.
 
-See [`docs/CLAUDE.md`](docs/CLAUDE.md) for the full project brief, invariants, and
-architecture, and [`docs/plan.md`](docs/plan.md) for the milestone plan this repo is
-built against.
+Claims combine medical records, money and documents written by a possible attacker.
+So the insurance logic is deliberately simple. The real product is the **control
+system that makes AI agents safe to trust with a claim**.
 
----
-
-## Status: M0-M8 done ✅ (M9 next)
-
-**M0 — Skeleton:** repo layout, `uv` backend (Agno 3.0), Next.js frontend, Phoenix +
-OpenInference wired and verified with a real traced agent call.
-
-**M1 — Synthetic data:** all 9 collections seeded to Supabase Postgres (60
-policyholders incl. Priya/Rahul's exact fixtures, 409 claims, 25 hospitals w/
-3 watchlisted, 28 policy-term clauses embedded via Gemini into pgvector). 13
-generated PDF documents, **5 confirmed poisoned** with extractable-but-invisible
-(white-on-white) prompt-injection text for the S06 scenario. `make seed` is
-idempotent (verified with repeated runs).
-
-**M2 — Token service + data gateway (security core):** both running as real
-FastAPI services.
-- Token service (`backend/auth/`): issues short-lived, single-scope, EdDSA
-  (Ed25519)-signed JWTs per `docs/security-matrix.md` §5; enforces the agent×scope
-  matrix (GOV-003), trust-score gating (TRUST-001), and delegation-never-widens;
-  revokes by `jti` and by `req_id`; publishes JWKS.
-- Data gateway (`backend/data_gateway/`): the only code that queries Postgres;
-  runs the full 7-step validation checklist from §6 (signature, audience/issuer,
-  expiry with 5s clock skew, revocation, scope match, row binding, field-allowlist
-  filtering) before returning any row.
-- Verified end-to-end over real HTTP against live Supabase data, not just unit tests.
-
-**M3 — AGT adapter + policies + audit (governance core):** built on the real
-`agent-governance-toolkit` SDK (v4.1.0) — no Agno-specific integration exists
-in the SDK, so `backend/governance/` is a custom adapter against its
-framework-agnostic core, per ADR-002.
-- `governance/adapter.py`: every agent tool call goes through
-  `check_and_audit()` — GOV-001 (tool allowlist), GOV-002 (40-call circuit
-  breaker), then all PAY-001..006 / STATE-001..002 / DATA-001..002 rules
-  (`governance/rules.py`) — before an audit entry is written and the call is
-  allowed or denied.
-- Audit trail is AGT's own `FlightRecorder`: append-only, hash-chained,
-  `verify_integrity()` detects tampering — used as-is rather than
-  reimplemented.
-- Real per-agent Ed25519 identities (`governance/identity.py`, via
-  `agentmesh.identity.SoftwareKeyStore`) replace M2's shape-only ID-001 stub;
-  `auth/token_service.py` now verifies a real signature, not just staleness.
-- `make test-security` passes **70/70** tests with no agents involved — the
-  M2 *and* M3 "done when" conditions — covering every rule's allow and deny
-  case, plus the full token/gateway checklist from M2.
-
-**M4 — Intake, medical reviewer, coverage:** the first 3 real ClaimGuard
-agents, built with Agno (`backend/agents/`).
-- `intake.py` / `medical_reviewer.py`: typed Agno agents (`output_schema`)
-  matching the MedicalFinding contract in `docs/architecture.md` §9 exactly.
-  Document text is delimited and labelled untrusted, passed in the user
-  message only — never merged into the system prompt (invariant 8); verified
-  resistant to S06's actual injection payload across repeated live runs.
-- `settlement.py`: the payable-amount arithmetic is deterministic Python, not
-  LLM reasoning (docs/architecture.md §2), so every deduction's `clause_id`
-  and amount is guaranteed correct, not just plausible.
-- `supervisor.py`: a plain Python orchestrator, not an Agno `Team` — every
-  real `TeamMode` (coordinate/route/broadcast/tasks, confirmed by reading
-  Agno's own source) has an LLM leader deciding delegation, which is the
-  wrong fit for the fixed intake→medical_reviewer→coverage sequence
-  `docs/architecture.md` §7 specifies.
-- **Verified against real S01 documents end-to-end through the actual
-  supervisor: produces exactly ₹37,300 payable**, matching M4's "done when"
-  condition precisely, not approximately.
-
-**M5 — Fraud, payout, tiers, human-in-the-loop:** the two remaining agents
-(`fraud`, `payout`) join the supervisor, and this is where the security core
-(M2/M3) gets exercised by real agents for the first time — not just unit
-tests. New: `governance/client.py` (the real chain: `check_and_audit()` →
-signed identity assertion → token service HTTP → data gateway HTTP), a
-`POST /write` gateway endpoint for the three `*:write` scopes, real HMAC
-pseudonymisation (`data_gateway/pseudonymise.py`) for `claims:read_pseudonymised`,
-a claim state machine (`api/state_machine.py`) matching
-`docs/architecture.md` §8 exactly, and an officer decision API (`api/officer.py`).
-- `fraud.py`: screens pseudonymised claims + the hospital watchlist through
-  the real gateway. Pre-filters the 409-row claim set down to evidence rows
-  in plain Python before it ever reaches the LLM (raw-dumping all rows hit
-  Groq's per-request token limit, and would have violated data-minimisation
-  regardless) — verified live: S01 comes back clean, S04's duplicate-bill
-  and S10's watchlisted-hospital flags both fire with correct evidence_refs.
-- `payout.py`: plain Python, not an Agno agent (same "enforcement is
-  deterministic code" reasoning as `settlement.py`) — `execute_payout` goes
-  through PAY-001..006 with `trusted` values pulled from Postgres, never
-  from the call's own args. **S06 verified live end-to-end, three ways**:
-  wrong amount, wrong account, and both — all three denied by name
-  (PAY-001/PAY-002), and the full supervisor run (real LLM reading the
-  actual poisoned PDF) never even attempted the injected ₹4,50,000 in the
-  first place.
-- Found and fixed a real gap while wiring payout: `bank_details:read` had no
-  row binding at all (it has no `claim_id` column, so the gateway's binding
-  check silently skipped it) — any claim-scoped token could read every
-  policyholder's bank details. Fixed in `data_gateway/gateway.py`/`app.py`
-  by resolving the token's claim to its policy_number before comparing.
-- Found and fixed a real M1 seed-data bug while testing S03: its claim was
-  attached to Priya's 14-month-old policy instead of Rahul's 20-day-old one
-  (the policy the "20 days ago" scenario narrative actually describes), so
-  it paid automatically instead of stopping at `pending_human`. Corrected
-  in `data/synthetic/generators/claims.py` and `docs/use-case.md`.
-- **All three of M5's "done when" conditions verified live, end to end,
-  through the real supervisor**: S01 pays automatically (₹37,300, T2); S02
-  (₹71,000 room-rent-excess case) and S03 (waiting-period case) both stop
-  at `pending_human`; S06 is never paid, in any variation tried.
-- Officer decision API (`api/officer.py`): `pending_human → approved/
-  approved_partial/rejected`, itself a real governed `set_claim_state` call
-  so STATE-001 applies identically — a rejection with no officer decision
-  record is denied the same way whether it comes from the API or a direct
-  call. An approval supplies PAY-003/004's officer_approval_id and then
-  calls payout for real. Tested live: an approved S02 pays through the
-  officer path; a rejected S03 records the decision with no payout attempt.
-- Token revocation wired into the state machine itself: entering `paid`,
-  `rejected`, or `pending_human` revokes every token issued for that
-  `req_id` (security-matrix.md §4), not left as an unused function.
-- `make test-security` still passes **70/70** (unaffected by M5); the real
-  audit trail (`FlightRecorder`) was inspected directly and its hash chain
-  verified intact across every allow/deny decision made while testing M5.
-
-**M6 — Observability deepening:** one real trace per claim across every
-service, redaction that actually runs before export (not just span-side
-attribute hygiene), and documented Phoenix views.
-- **Context propagation** (`observability/tracing.py`, `governance/
-  client.py`): manual W3C `traceparent` inject/extract via plain
-  `opentelemetry.propagate` — no auto-instrumentation libraries, matching
-  docs/CLAUDE.md's own stack line ("custom OTel spans," not
-  auto-instrumented httpx/FastAPI). `governance/client.py`'s `call_tool()`
-  now wraps its whole HTTP round-trip (governance check + token issuance +
-  gateway call) in one `tool.call` span so it stays open long enough to
-  actually be the parent of the calls it makes — found live that the
-  original `governance.decision` span alone had already closed by the time
-  the HTTP calls ran, so propagation code that was itself correct still
-  produced disconnected traces.
-- **Verified live, not asserted**: a full S01 claim flow produces **one
-  shared `trace_id`** across the supervisor process, the token service, and
-  the data gateway — 23 spans (Agno agent runs, `governance.decision`,
-  `token.issue`, `gateway.access`, `tool.call`) all under one trace, checked
-  directly against Phoenix's own stored spans, not just logged and assumed.
-- **Redaction processor** (`observability/redaction.py`), registered first
-  in the export pipeline (before spans ever reach Phoenix's exporter):
-  medical free text → `[REDACTED:medical]`, account numbers → last 4
-  digits, the two fixed persona names → stable pseudonyms. Found and fixed
-  a real leak while verifying live: OpenInference's per-message LLM
-  attributes (`llm.input_messages.<N>.message.content`) carried a second,
-  unredacted copy of the same raw diagnosis/discharge text that
-  `input.value`/`output.value` were already correctly redacting — fixed
-  with a role-aware rule (system prompts stay readable; user/assistant
-  content is redacted) rather than blanket-hiding every LLM message.
-- **M6's own "done when" verified live in one real trace**: S06 run through
-  the actual supervisor (real LLM reading the real poisoned PDF) plus the
-  adversarial ₹4,50,000/unregistered-account payout attempt in the same
-  trace — the PAY-001 denial is visible, and a direct search of every
-  span's attributes in that trace turns up zero instances of the raw
-  injected payload text, the unregistered account number, or the real name.
-- Also found and fixed, incidentally: a genuine version-skew bug in
-  `arize-phoenix-otel` (latest release, 0.17.1) against the current
-  `arize-phoenix` — its `register()` convenience function unconditionally
-  crashes on a renamed internal attribute. Worked around by building the
-  `TracerProvider`/exporter directly from `opentelemetry-sdk` instead of
-  through the broken wrapper — confirmed byte-for-byte equivalent Phoenix
-  project placement via its own `/v1/projects` API.
-- Phoenix views documented with real, tested filter expressions (not
-  guessed syntax) in
-  [`docs/observability-dashboards.md`](docs/observability-dashboards.md):
-  denials by rule, token issuance by agent, latency per agent, cost per
-  claim.
-
-**M7 — Harbor evals:** 10 scenario tasks (S01-S10, `evals/harbor/tasks/`), each with
-its own `instruction.md`/`task.toml`, a custom `BaseAgent` adapter that calls the real
-AgentOS API, and a custom `BaseVerifier` that checks the real claim outcome/audit
-trail against the scenario's expectations.
-- **No Docker.** Harbor's own environment abstraction defaults to spinning up a
-  container per task, but this project runs every task straight on the host instead,
-  via a from-scratch `BaseEnvironment` subclass
-  (`evals/harbor/environment_backend/local_host.py`) that maps Harbor's hardcoded
-  container-path conventions (`/logs/agent`, `/logs/verifier`, ...) onto the real local
-  per-trial directories Harbor itself already creates. Selected with
-  `--env environment_backend.local_host:LocalHostEnvironment`.
-- Verified live: `harbor run` against the real dev stack (`npm run dev` already
-  running), zero Docker daemon involved, real outcome/governance scores.
-
-**M8 — Console (Next.js frontend):** four real pages — Policyholder, Officer,
-Compliance, and an Agent Pipeline view — plus a full design-system pass (OKLCH
-tokens, light/dark mode) matching a specified reference look exactly.
-- **Real document upload is the actual entrypoint**, not a pre-seeded `claim_id`
-  replay: `POST /claims/new` (`backend/api/claim_intake.py`) takes two real PDF
-  files from the browser, extracts their text with real `pypdf` (the same
-  extraction the seed generator itself uses, applied to genuinely unseen files),
-  hashes them, and creates a real `Claim` row — then the Console automatically
-  submits that claim for assessment through the unchanged 5-agent pipeline.
-  Verified end-to-end with freshly generated, non-seed PDFs.
-- The demo-scenario buttons on the Policyholder page and the quick-load chips on
-  the Pipeline page both replay real, already-seeded S01-S10 claims for anyone who
-  wants to see a specific agent/governance behaviour without uploading their own
-  documents.
-- Pipeline page shows all 5 agents' real stored outputs for one claim side by side
-  (intake summary, medical finding, coverage deductions, fraud flags, payout
-  state), with an `AuditBadge` that's honest about which agents make governed,
-  audited tool calls (supervisor, payout) versus which do real work that isn't
-  itself gateway-audited (intake, medical reviewer, coverage, fraud).
-- Officer page includes the audited break-glass discharge-summary flow
-  (security-matrix.md §9) as a distinct, separately-logged path from the normal
-  medical_reviewer-only restriction.
-
-Everything past this point (tiers/scoping polish, remaining M9 work) is
-**not built yet** — see [`docs/plan.md`](docs/plan.md) M9 onward.
+> All data is synthetic: a fictional insurer (Kaveri Health Assurance), fictional
+> hospitals and fictional people. No real medical records or payments, ever.
 
 ---
 
-## Stack
+## Contents
+
+1. [The brief, and what was built](#1-the-brief-and-what-was-built)
+2. [Features added beyond the brief](#2-features-added-beyond-the-brief)
+3. [How a claim flows](#3-how-a-claim-flows)
+4. [Architecture](#4-architecture)
+5. [All features](#5-all-features)
+6. [Policy rules enforced in code](#6-policy-rules-enforced-in-code)
+7. [Tech stack](#7-tech-stack)
+8. [What we learned about the frameworks](#8-what-we-learned-about-the-frameworks)
+9. [Running it](#9-running-it)
+10. [Presenting it](#10-presenting-it)
+11. [Testing and evaluation](#11-testing-and-evaluation)
+12. [Repo layout](#12-repo-layout)
+13. [Docs and ADRs](#13-docs-and-adrs)
+14. [Limitations and next steps](#14-limitations-and-next-steps)
+
+---
+
+## 1. The brief, and what was built
+
+The brief left the problem open. It asked for an in-depth agentic AI solution using
+**Agno**, **Harbor**, **Microsoft AGT with JWT RBAC** (short-lived credentials per
+agent, per collection), a **Next.js / NestJS** prototype and **observability
+(Arize Phoenix)**, with **compliance, governance and observability tested in the
+product**.
+
+| Asked for | Built | Beyond the brief |
+|---|---|---|
+| **Agentic AI with Agno** | 4 Agno Agents (intake, medical reviewer, coverage, fraud) with Pydantic output contracts. They are orchestrated by one Agno **Workflow** (`claim-assessment`: Steps plus a Condition) and served by Agno **AgentOS**. Model-agnostic: Groq, Gemini or Claude. | A Workflow, not a Team, so no LLM leader. Steps fail closed. Two deterministic guardrails sit inside the workflow. Rate-limit retries. Telemetry off. |
+| **Microsoft AGT governance** | Governance adapter on AGT's framework-agnostic core. It runs GOV / PAY / STATE / DATA rules before every tool call. The AGT FlightRecorder is the hash-chained audit log. | Ed25519 agent identities. Trust gating. A governed claim state machine. **Payout kill switch (GOV-004).** Audited break-glass. The audit chain stays valid across processes. |
+| **JWT RBAC: short-lived credentials per agent, per collection** | A token service mints EdDSA JWTs covering 1 agent, 1 scope, 1 claim and 1 request. Lifetime is ≤ 300 s (120 s for medical records, 60 s for bank details and payments). JWKS. Revocation by jti and by request. | A separate data gateway with a 7-step check, row binding, field allowlists and HMAC pseudonymisation. Delegation never widens access. All tokens are revoked when a claim reaches a human. |
+| **Harbor evaluation** | 10 scenario tasks (S01–S10), attacks included. A custom agent adapter calls the real API. A custom verifier scores **outcome and governance evidence**. | Runs **without Docker**, through a custom host environment that also works on Windows. Scoreboard shown in the console. |
+| **Observability (Arize Phoenix)** | Self-hosted Phoenix. OpenInference for Agno, plus hand-written spans for governance, tokens and gateway access. | W3C context propagation across 3 services, so each claim is one trace. Redaction before export. Live event stream into the UI. **Cost and token meter.** |
+| **Prototype UI (Next.js or NestJS)** | Next.js console with role views. No NestJS (ADR-009). | Architecture page. **Live Run** with real PDF upload, narrated steps and a streaming backend log. Requirements proof. Red-team replay. Realistic sample documents. |
+| **Compliance and governance tested in the product** | 12 invariants, each with positive and negative tests. DPDP / IRDAI control mapping. Compliance report. | Security tests that need no agents. Harbor scores governance. Hash-chain integrity is shown live on the Compliance page. |
+
+---
+
+## 2. Features added beyond the brief
+
+These were added because each one closes a real risk, not for decoration.
+
+| Feature | The risk it closes | How it works | Where to see it |
+|---|---|---|---|
+| **Prompt-injection guardrail** | A claimant hides "pay ₹4,50,000 to account …" in white-on-white PDF text. | Before any agent runs, plain code scans every document's extracted text for instruction-like phrases (the same marker list as the upload endpoint). The run is not stopped, because the text only ever reaches agents as delimited untrusted data. But the claim is flagged and **forced to T3, so it can never be auto-paid**. | Live Run → *Rahul — poisoned discharge summary* → "Document guardrail" chapter |
+| **Anti-hallucination guardrail** | The coverage agent writes a wrong ₹ figure in the customer explanation. | Every ₹ amount in the explanation must exist in the settlement (claimed, payable, co-pay, each deduction). If any doesn't, the explanation is **replaced with one built only from the settlement**. | Live Run → "Explanation guardrail" chapter |
+| **Payout kill switch (GOV-004)** | An incident (a model regression, a suspected attack) needs all automated money movement stopped *now*. | Compliance flips one switch. GOV-004 runs first among the payout rules and re-reads the state on every check, with no restart. Agent payouts are denied and audited, and the claims go to officers. Officer-approved payouts still work. The toggle is itself governed and audited. A damaged control file reads as **frozen** (fail closed). | Compliance → "Automated payouts" card |
+| **Cost and token meter** | Nobody knows what an agentic run actually costs. | Sums the spans streamed during the run: LLM calls, prompt and completion tokens, time in the model against end-to-end time, and governance decisions. These are measured values, not estimates. | Live Run → meter above the backend log |
+| **Multi-writer-safe audit chain** | AGT's FlightRecorder caches the chain head per process, so two services writing the same log **forked the hash chain**. | `ChainSafeFlightRecorder` serialises appends under a cross-process lock and re-reads the real head each time. Proven with a 3-process × 2-thread test. | Compliance → "Audit hash chain: Intact" |
+| **Fail-closed Agno Workflow** | Agno keeps running after a failed step and reports the run `completed`. | Every step is wrapped: an error records the reason and returns `StepOutput(stop=True)`. Step retries are disabled, so a payout is never silently re-attempted. | `backend/agents/supervisor.py` |
+| **Live Run and requirements proof** | Reviewers can't see inside a backend. | Every backend operation streams to the UI over SSE: agent runs, LLM calls, allow/deny, identity, tokens, gateway, state changes and spans. Each requirement of the brief is ticked off by live evidence from that run. | `/live` |
+| **Red-team replay** | "Would it actually stop an agent that obeyed the injection?" | Replays the injected payout through the real governance path: PAY-001 (amount), PAY-002 (account), DATA-001 (medical records) and GOV-003 (scope), then an audit-integrity check. | Live Run → "Run the red-team attack" |
+| **Realistic hospital documents** | Toy PDFs make the demo look fake. | Generated hospital bills and discharge summaries with letterhead, registration numbers, barcode, QR code, stamp and itemised charges. The poisoned version carries invisible text. | Live Run → sample packs; `data/samples/` |
+| **Harbor without Docker** | Harbor assumes containers, which aren't available everywhere. | A custom `BaseEnvironment` maps container paths to trial directories and runs a POSIX shell on the host (Git Bash on Windows). | `npm run eval` |
+
+---
+
+## 3. How a claim flows
+
+```mermaid
+flowchart LR
+    U[Policyholder uploads<br/>bill + discharge PDFs] --> G1[Document guardrail<br/><i>code</i>]
+    G1 --> I[Intake agent<br/><i>Agno</i>]
+    I --> M[Medical reviewer agent<br/><i>Agno</i>]
+    M --> S[Settlement<br/><i>code</i>]
+    S --> C[Coverage agent<br/><i>Agno</i>]
+    C --> G2[Explanation guardrail<br/><i>code</i>]
+    G2 --> F[Fraud agent<br/><i>Agno</i>]
+    F --> T{Tier<br/><i>code</i>}
+    T -- "T2: ≤ ₹50,000,<br/>no flags" --> P[Governed payout<br/>PAY-001…006, GOV-004]
+    T -- "T3: anything else" --> H[Officer queue<br/>human decides]
+```
+
+The whole chain is one Agno Workflow. Steps run in a fixed order, and the money
+branch is an Agno `Condition`. Orchestration uses **zero LLM tokens**, and injected
+text cannot change the order.
+
+**What happens under every agent data access:**
+
+```
+agent tool call
+  → AGT governance adapter      (GOV / PAY / STATE / DATA rules; deny = stop, audited)
+  → Ed25519 identity assertion  (ID-001: signed, ≤ 30 s old)
+  → token service               (GOV-003 scope matrix, TRUST-001 trust score → 1-scope JWT)
+  → data gateway                (7 checks: signature, audience, expiry, revocation,
+                                 scope, row binding, field allowlist)
+  → Postgres                    (only the gateway holds DB credentials)
+  → FlightRecorder audit entry + OpenTelemetry span (redacted) at every hop
+```
+
+Two independent layers must both say yes: **governance** decides whether the action
+is allowed, and **token + gateway** decide whether this agent may read this data.
+
+---
+
+## 4. Architecture
+
+```mermaid
+flowchart LR
+  subgraph Z1[Untrusted input]
+    PDF[Hospital PDFs]
+  end
+  subgraph Z2[Console · Next.js :3005]
+    UI[Live Run · Policyholder · Officer<br/>Compliance · Pipeline · Architecture]
+  end
+  subgraph Z3[Agent runtime · Agno AgentOS :8000]
+    WF[claim-assessment Workflow<br/>4 agents + guardrails + Condition]
+    GOV[AGT governance adapter<br/>16 rules · kill switch]
+    AUD[(FlightRecorder<br/>hash-chained audit)]
+  end
+  subgraph Z4[Credentials]
+    TOK[Token service :8100<br/>Ed25519 identities · EdDSA JWT · JWKS]
+  end
+  subgraph Z5[Restricted data]
+    GW[Data gateway :8200<br/>7 checks · pseudonymisation]
+    DB[(Postgres + pgvector<br/>9 collections)]
+  end
+  OFF[Officer API :8400]
+  PHX[Arize Phoenix :6006]
+
+  PDF --> UI --> WF --> GOV --> TOK --> GW --> DB
+  GOV --> AUD
+  UI --> OFF --> GOV
+  WF -. spans .-> PHX
+  TOK -. spans .-> PHX
+  GW -. spans .-> PHX
+```
+
+| Service | Port | Role |
+|---|---|---|
+| Console (Next.js) | 3005 | Role views, Live Run, Architecture page |
+| AgentOS (Agno, wraps FastAPI) | 8000 | Claim intake, the Workflow, live stream, `/agents`, `/workflows`, governance controls |
+| Token service | 8100 | Verifies agent identity, mints short-lived single-scope JWTs, JWKS, revocation |
+| Data gateway | 8200 | The only code that touches Postgres |
+| Officer API | 8400 | Human decisions, break-glass, officer-approved payouts |
+| Phoenix | 6006 | Traces |
+
+**Least-privilege matrix** (full version: [`docs/security-matrix.md`](docs/security-matrix.md)):
+
+| Agent | Access |
+|---|---|
+| supervisor (workflow) | **none**: it holds no data access at all |
+| intake | claims:write, claim_documents:read, medical_records:write |
+| medical_reviewer | claims:read, medical_records:read (the **only** reader of medical text) |
+| coverage | policyholders:read_limited, policy_terms:read, claims:read |
+| fraud | claims:read_pseudonymised, hospitals:read |
+| payout | bank_details:read, claims:read, payments:write |
+
+---
+
+## 5. All features
+
+### Agentic pipeline (Agno)
+- **Intake agent** extracts line items, totals and dates. Document text reaches it as delimited untrusted data, never in the system prompt.
+- **Medical reviewer agent** is the only reader of medical text. It returns a coded finding (ICD-10, flags, confidence) that everyone else uses instead (ADR-007).
+- **Settlement** is deterministic code. Every deduction cites its policy clause (room-rent cap, non-payables, co-pay, sub-limits).
+- **Coverage agent** explains the settlement in plain language and cannot change the numbers.
+- **Fraud agent** screens pseudonymised claim history and the hospital watchlist through the governed chain.
+- **Tiering and payout** are code. T2 is auto-paid only when the amount is ≤ ₹50,000 and every check passes. Everything else goes to a human.
+- **Model-agnostic**: Groq by default, with Gemini or Claude by config. Rate-limit retries with exponential backoff.
+
+### Governance and security
+- **16 policy rules** in code, fail closed, each with a named reason code ([§6](#6-policy-rules-enforced-in-code)).
+- **Trusted context, never arguments.** PAY rules compare the agent's request against values loaded from the database, so an injected amount can be *requested* but never be the value it is checked against.
+- **Ed25519 agent identities**, **trust-score gating**, and **short-lived single-scope JWTs** revoked when a claim reaches a human.
+- **Data gateway**: 7 checks, row binding, field allowlists, HMAC pseudonymisation.
+- **Governed state machine**: only an officer decision record can reject a claim (STATE-001).
+- **Payout kill switch**, **prompt-injection guardrail** and **anti-hallucination guardrail** ([§2](#2-features-added-beyond-the-brief)).
+- **Audited break-glass**: an officer can read a discharge summary only with a stated reason, and it is logged.
+
+### Audit and observability
+- **Hash-chained audit log** (AGT FlightRecorder), safe for multiple writers, with integrity verified on the Compliance page.
+- **One OpenTelemetry trace per claim** across AgentOS, the token service and the gateway, with medical text, account numbers and names redacted before export.
+- **Live event stream**: every backend operation visible in the UI as it happens.
+- **Cost and token meter** for every run.
+
+### Console (Next.js)
+| Page | What it shows |
+|---|---|
+| `/architecture` | Problem, brief → built → added, system and sequence diagrams, added features, security model, ADRs, framework findings, demo tour |
+| `/live` | **Live Run**: sample packs or your own PDFs, narrated chapters, streaming backend log, meter, requirements proof, red-team replay, Harbor scoreboard |
+| `/policyholder` | Submit a claim; see status, payable amount and every deduction with its clause |
+| `/officer` | T3 queue: findings, fraud flags, clauses, break-glass, approve / partial / reject |
+| `/compliance` | KPIs, denials by rule, activity by agent, break-glass use, audit-chain integrity, **payout kill switch** |
+| `/pipeline` | Per-claim agent pipeline and its audit trail |
+
+### Sample document packs (Live Run)
+| Pack | Scenario | Expected outcome |
+|---|---|---|
+| Jyoti — Dengue fever | Clean claim with non-payables | Auto-paid (T2), ₹37,300 |
+| Priya — Pneumonia, private room | Room-rent deductions, amount above ₹50,000 | Human review (T3) |
+| Rahul — Poisoned discharge summary | Hidden payout instruction in white-on-white text | Guardrail flags it; never auto-paid; red-team replay blocked |
+
+---
+
+## 6. Policy rules enforced in code
+
+| Rule | Denies |
+|---|---|
+| GOV-001 | Tool not in the agent's allowlist |
+| GOV-002 | Per-request tool-call budget exceeded (circuit breaker) |
+| GOV-003 | Scope not in the agent × collection matrix (token service) |
+| **GOV-004** | Automated payout while compliance has frozen automated payouts (kill switch) |
+| ID-001 | Identity assertion missing, bad signature, or older than 30 s |
+| TRUST-001 | Agent trust score below the scope's threshold |
+| PAY-001 | Payout amount ≠ assessed payable |
+| PAY-002 | Payout account ≠ registered account |
+| PAY-003 | Payout > ₹50,000 without officer approval |
+| PAY-004 | Fraud-flagged claim without officer approval |
+| PAY-005 | Second payout for the same claim |
+| PAY-006 | Payout above the remaining sum insured |
+| STATE-001 | Rejection without an officer decision record |
+| STATE-002 | Approval or payment that skipped required steps |
+| DATA-001 | Medical records requested by anyone except intake (write) or the medical reviewer (read) |
+| DATA-002 | An account number in tool arguments that did not come from bank_details |
+
+---
+
+## 7. Tech stack
 
 | Layer | Choice |
 |---|---|
-| Backend language | Python 3.12, managed with `uv` |
-| Agent framework | [Agno](https://github.com/agno-agi/agno) (AgentOS runtime) |
-| Governance | [Microsoft Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) v4.1.0 (public preview) |
-| Auth | PyJWT, EdDSA (Ed25519) — added in M2 |
-| Database | Postgres 16 + pgvector, hosted on Supabase |
-| Observability | Arize Phoenix (local) + OpenInference instrumentation |
-| Evals | [Harbor](https://github.com/laude-institute/harbor) — added in M7 |
-| Frontend | Next.js (App Router, TypeScript) |
-| LLM provider | Model-agnostic via Agno; this repo defaults to Groq (`MODEL_PROVIDER=groq`), Gemini and Anthropic also supported |
-
-**No Docker — including for evals.** Every service runs as a native local process,
-and Harbor's own eval runs do too, via a custom `BaseEnvironment` that runs directly
-on the host instead of in a container (see [`docs/adr/006-evaluation-harbor.md`](docs/adr/006-evaluation-harbor.md)
-for the full history — Docker was tried first and deliberately dropped). Postgres is
-hosted (Supabase) rather than run locally.
+| Agent framework | [Agno](https://github.com/agno-agi/agno) 3.0: Agents, a deterministic Workflow, the AgentOS runtime |
+| Governance | [Microsoft Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) 4.1 (policy core, FlightRecorder, agentmesh identities) |
+| Credentials | PyJWT with EdDSA (Ed25519), JWKS, a custom token service |
+| API | FastAPI (AgentOS, token service, data gateway, officer API) |
+| Database | Postgres 16 + pgvector on Supabase |
+| Observability | OpenTelemetry, OpenInference, Arize Phoenix (self-hosted) |
+| Evaluation | [Harbor](https://github.com/harbor-framework/harbor) 0.23 with a custom adapter, verifier and no-Docker environment |
+| Frontend | Next.js (App Router, TypeScript), Tailwind |
+| Documents | pypdf (extraction), ReportLab (realistic sample generation) |
+| LLM | Groq by default; Gemini and Anthropic supported |
+| Tooling | `uv` (Python), npm, `concurrently`; runs natively on Windows, macOS and Linux with **no Docker** |
 
 ---
 
-## Running it locally
+## 8. What we learned about the frameworks
+
+| Area | Finding | What we did |
+|---|---|---|
+| Agno Teams | Every Team mode has an LLM leader deciding delegation. | Used a deterministic Agno Workflow instead: no leader calls, and no way for injected text to steer the order. |
+| Agno Workflows | A failed step doesn't stop the run, which is still reported `completed` (verified in 3.0.11). | Every step fails closed; step retries are disabled. |
+| Agno AgentOS | Telemetry defaults to on. AgentOS can wrap an existing FastAPI app. | Telemetry off everywhere; AgentOS wraps the API and keeps every existing route. |
+| Microsoft AGT | 4.1 has no Agno integration. The FlightRecorder caches the chain head per process. | Custom adapter on AGT's core; a cross-process-safe recorder. |
+| Phoenix | `register()` crashes against the current OTLP exporter. | Built the TracerProvider directly with the OpenTelemetry SDK. |
+| OpenInference | Kept a second, unredacted copy of medical text in per-message attributes. | Role-aware redaction. |
+| OpenTelemetry | Trace context was lost across services. | A parent span around each governed round trip gives one trace per claim. |
+| Harbor | Assumes containers; shell and encoding differ on Windows. | Custom host environment, Git Bash, UTF-8 mode. |
+| Groq | Allows 8,000 tokens/min, and a claim uses about 6,600. | Retries with backoff; Harbor runs scenarios one at a time. |
+| Security review | `bank_details:read` had no row binding. | The gateway now resolves the token's claim to its policy first. |
+
+---
+
+## 9. Running it
 
 ### Prerequisites
-
-- Python 3.12+ and [`uv`](https://docs.astral.sh/uv/)
+- Python 3.12+ and [`uv`](https://docs.astral.sh/uv/) on your `PATH` (on Windows: `pip install uv`)
 - Node.js 20+
-- A Supabase (or any Postgres 16 + pgvector) database — needed from M1 onward, not for M0
-- An API key for at least one LLM provider (Groq, Gemini, or Anthropic)
+- Postgres 16 + pgvector (Supabase works)
+- An API key for Groq, Gemini or Anthropic
 
 ### Setup
-
 ```bash
-cp .env.example .env        # then fill in your DATABASE_URL and an LLM API key
-npm install                 # root: installs `concurrently` for dev orchestration
+cp .env.example .env                      # fill in DATABASE_URL and an LLM key
+npm install                               # root: dev orchestration
 cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
-cd evals/harbor && uv sync && cd ../..   # only needed for `make eval` — separate uv project, M7
+cd evals/harbor && uv sync && cd ../..    # for the Harbor evals
+npm run seed                              # synthetic data (idempotent)
 ```
 
 ### Run
-
 ```bash
-make seed   # populates Supabase with synthetic data (idempotent, safe to re-run)
-npm run dev # or `make up` — same thing
+npm run dev
 ```
+This starts Phoenix (`:6006`), the console (`:3005`), the token service (`:8100`), the
+data gateway (`:8200`), AgentOS (`:8000`) and the officer API (`:8400`) in one
+terminal. It works from bash, cmd and PowerShell.
 
-Starts Phoenix (`:6006`), the frontend/Console (`:3005`), the token service
-(`:8100`), the data gateway (`:8200`), AgentOS (`:8000`), and the officer decision
-API (`:8400`) together in one terminal.
-
-Open `http://localhost:3005` for the Console — start at `/policyholder` to submit
-a real claim (upload your own PDFs, or use one of the demo-scenario buttons to
-replay a seeded S01-S10 case), then follow it through `/pipeline`, `/officer`
-(for claims that stop at human review), and `/compliance`.
-
-### Presenting it
-
-- `http://localhost:3005/architecture`: the brief compared with what was built,
-  system and request-flow diagrams, the security model, design decisions, what was
-  learned about each framework, and a demo tour.
-- `http://localhost:3005/live`: a live, narrated claim run. Upload real PDFs (or a
-  sample pack) and watch every backend operation stream in: agent runs, LLM calls,
-  governance allow/deny, token issuance, gateway checks, state changes and spans. It
-  also has a requirements-proof panel, a red-team replay of the S06 injection, and the
-  Harbor scoreboard.
-- `npm run eval`: runs the Harbor suite (S01–S10) without Docker, from any shell.
-- [`docs/demo-script.md`](docs/demo-script.md): the presenter walkthrough.
-
-To fire the smoke-test agent and confirm a trace appears in Phoenix, in a second
-terminal (with `npm run dev` still running):
-
-```bash
-npm run dev:hello-agent
-```
-
-Then open `http://localhost:6006` and look for the `claimguard-hello-agent` project.
-
-Run the security test suite (no live services needed):
-
-```bash
-make test-security
-```
-
-Run the Harbor eval suite (needs `npm run dev`'s stack already running — no Docker):
-
-```bash
-npm run eval                                          # all 10 scenarios
-cd evals/harbor && uv run python run_evals.py S01 S06 # just these
-```
-
-Scenarios run one at a time: they all drive the same local stack and the same
-rate-limited LLM key. `run_evals.py` works from bash, cmd and PowerShell.
+Open **http://localhost:3005/architecture**.
 
 ---
 
-## Repo layout
+## 10. Presenting it
+
+About 18 minutes. The full script and likely questions are in
+[`docs/demo-script.md`](docs/demo-script.md).
+
+1. **Architecture** (`/architecture`): problem, brief → built → added, diagrams.
+2. **Happy path** (`/live` → *Jyoti — Dengue fever*): narrate the chapters; watch identity → token → gateway in the log; the meter; ₹37,300 auto-paid.
+3. **Requirements proof**: each requirement ticked off by evidence from that run.
+4. **The attack** (`/live` → *Rahul — poisoned*): open the PDF (it looks clean); the guardrail flags it, so it is never auto-paid; then run the red-team replay (PAY-001, PAY-002, DATA-001, GOV-003).
+5. **Kill switch** (`/compliance`): freeze automated payouts, run a clean claim, and it goes to an officer with a GOV-004 denial in the audit log. Unfreeze.
+6. **Human in the loop** (`/officer`): findings, break-glass with a reason, approve → governed payout.
+7. **Audit** (`/compliance`): denials by rule, hash chain intact.
+8. **One trace** (Phoenix `:6006`): search the trace id from Live Run.
+9. **Evaluation** (`/live#evals`): Harbor S01–S10 scored on outcome and governance.
+
+---
+
+## 11. Testing and evaluation
+
+```bash
+make test-security        # backend security suite: no agents or live services needed
+npm run eval              # Harbor S01–S10 against the running stack, no Docker
+cd evals/harbor && uv run python run_evals.py S01 S06   # selected scenarios
+```
+
+The **backend suite** (140 tests, about 5 seconds) covers every rule's allow and deny case, the token and gateway
+checklist, redaction, the multi-writer audit chain, both guardrails and the kill
+switch.
+
+The **Harbor scenarios** are:
+
+| # | Scenario | # | Scenario |
+|---|---|---|---|
+| S01 | Happy path | S06 | Prompt injection in the discharge summary |
+| S02 | Room-rent cap | S07 | Scope escalation |
+| S03 | Waiting period | S08 | Expired-token replay |
+| S04 | Duplicate bill | S09 | Missing document |
+| S05 | Inflated amount | S10 | Watchlisted hospital |
+
+Each is scored on the **outcome** (status, tier, amount) **and the governance
+evidence**, i.e. the expected rule ids in the audit trail.
+
+---
+
+## 12. Repo layout
 
 ```
 backend/
-  agents/          # Agno agent + team definitions, prompts
-  governance/       # AGT adapter, policies/ (YAML/Rego), audit chain
-  auth/            # token service (issue, validate, revoke)
-  data_gateway/    # the only code that touches Postgres
-  payments_mock/   # records intended payouts
-  observability/   # OTel setup, custom span helpers, redaction
-  api/             # AgentOS app, officer decision endpoints for the console
-  tests/
+  agents/          Agno agents, the claim-assessment Workflow (supervisor.py), guardrails
+  governance/      AGT adapter, rules, kill-switch controls, identities, audit chain
+  auth/            token service (issue, validate, revoke, JWKS)
+  data_gateway/    the only code that touches Postgres; pseudonymisation
+  observability/   OpenTelemetry setup, redaction, live event stream
+  api/             Agno AgentOS app, live stream, sample packs, officer API, governance controls
+  payments_mock/   records intended payouts
+  tests/           security, guardrail, kill-switch, audit-chain and redaction tests
 evals/harbor/
-  adapter/         # Harbor agent adapter that calls our AgentOS API
-  tasks/           # one folder per scenario S01-S10
-frontend/          # Next.js console
-data/synthetic/    # generators, seed data, sample PDFs (incl. poisoned ones)
-docs/              # project brief, architecture, security matrix, ADRs, plan
+  adapter/              Harbor agent adapter calling the AgentOS API
+  tasks/                S01–S10
+  environment_backend/  custom no-Docker environment
+  run_evals.py          cross-platform runner (npm run eval)
+frontend/          Next.js console
+data/synthetic/    generators, seed data, realistic and poisoned PDFs
+docs/              product overview, architecture, security matrix, ADRs, demo script
 ```
 
-## Docs
+---
 
-- [`docs/use-case.md`](docs/use-case.md) — story, personas, plan terms, scenarios S01-S10
-- [`docs/architecture.md`](docs/architecture.md) — full architecture and data flow
-- [`docs/security-matrix.md`](docs/security-matrix.md) — agent × collection × scope × TTL (source of truth for access)
-- [`docs/compliance-mapping.md`](docs/compliance-mapping.md) — DPDP / IRDAI expectations → controls → tests
-- [`docs/plan.md`](docs/plan.md) — milestones and acceptance criteria
-- [`docs/adr/`](docs/adr/) — architecture decision records
+## 13. Docs and ADRs
+
+- [`docs/PRODUCT.md`](docs/PRODUCT.md): product overview
+- [`docs/demo-script.md`](docs/demo-script.md): presenter walkthrough and Q&A
+- [`docs/architecture.md`](docs/architecture.md): full architecture and data flow
+- [`docs/security-matrix.md`](docs/security-matrix.md): agent × collection × scope × TTL, the source of truth for access
+- [`docs/compliance-mapping.md`](docs/compliance-mapping.md): DPDP / IRDAI expectations → controls → tests
+- [`docs/use-case.md`](docs/use-case.md): personas, plan terms, scenarios
+
+**Architecture decision records** ([`docs/adr/`](docs/adr/)):
+
+| ADR | Decision |
+|---|---|
+| 001 | Agno; orchestration as a deterministic Workflow, not a Team |
+| 002 | Governance at the action layer (AGT), not prompt guardrails alone |
+| 003 | Scoped short-lived JWTs plus a separate data gateway |
+| 004 | One Postgres with isolated collections |
+| 005 | Arize Phoenix for observability |
+| 006 | Harbor for evaluation, without Docker |
+| 007 | Medical finding contract (only one agent reads medical text) |
+| 008 | Human in the loop by tiers |
+| 009 | Next.js only, no NestJS |
+| 010 | Identity → trust → token chain |
+| 011 | Deterministic guardrails around the model |
+| 012 | Payout kill switch (GOV-004) |
+
+---
+
+## 14. Limitations and next steps
+
+- **No human login.** Console roles are views, not authenticated sessions. Next step: OIDC for the console roles.
+- **Local, single-node deployment.** Next step: containers or Kubernetes, a secrets vault, the audit log mirrored to WORM storage.
+- **Custom token service** that mirrors OAuth token exchange. Next step: a standards-based authorization server.
+- **Harbor runs against the shared dev stack.** Next step: a disposable per-run database in CI.

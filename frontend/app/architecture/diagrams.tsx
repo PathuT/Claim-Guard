@@ -102,7 +102,7 @@ export function SystemDiagram() {
 
         {/* Agent runtime */}
         <Box x={400} y={62} w={315} h={48} title="LLM provider (external)" tone="external" dashed lines={["Groq gpt-oss-120b · swappable: Gemini, Claude"]} />
-        <Box x={400} y={124} w={315} h={48} title="Agno Workflow — claim-assessment" tone="code" lines={["deterministic Steps + Condition (T2 pay / T3 human)"]} />
+        <Box x={400} y={124} w={315} h={48} title="Agno Workflow — claim-assessment" tone="code" lines={["Steps + 2 guardrails + Condition (T2 pay / T3 human)"]} />
         <Box x={400} y={186} w={152} h={62} title="Intake" tone="agent" lines={["Agno · typed output", "docs = untrusted data"]} />
         <Box x={563} y={186} w={152} h={62} title="Medical reviewer" tone="agent" lines={["Agno · ONLY agent that", "sees medical text"]} />
         <Box x={400} y={260} w={152} h={62} title="Coverage" tone="agent" lines={["Agno · explains the", "settlement, can't change it"]} />
@@ -113,7 +113,7 @@ export function SystemDiagram() {
         <Box x={400} y={478} w={315} h={62} title="Claim intake API (FastAPI)" lines={["real PDF upload · pypdf text extraction", "sha256 fingerprints · live SSE event stream"]} />
 
         {/* Control plane */}
-        <Box x={750} y={62} w={195} h={100} title="AGT governance adapter" tone="control" lines={["on EVERY tool call:", "GOV-001/002 · PAY-001…006", "STATE-001/002 · DATA-001/002", "trusted context · fail closed"]} />
+        <Box x={750} y={62} w={195} h={100} title="AGT governance adapter" tone="control" lines={["on EVERY tool call:", "GOV-001/002/004 · PAY-001…006", "STATE-001/002 · DATA-001/002", "trusted context · fail closed"]} />
         <Box x={750} y={186} w={195} h={48} title="Claim state machine" tone="control" lines={["every transition governed"]} />
         <Box x={750} y={248} w={195} h={62} title="FlightRecorder (AGT)" tone="control" lines={["append-only audit log", "hash-chained, verifiable"]} />
         <Box x={750} y={334} w={195} h={122} title="Token service (FastAPI)" tone="control" lines={["Ed25519 identity · ID-001", "trust score gate · TRUST-001", "scope matrix · GOV-003", "EdDSA JWT: 1 agent, 1 scope,", "1 claim, ≤ 300 s · JWKS", "revoke by jti / req_id"]} />

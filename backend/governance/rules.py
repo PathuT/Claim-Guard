@@ -8,6 +8,10 @@ Each rule is a function `(ToolCallContext) -> RuleResult` that:
 
 GOV-001/002/003 live in adapter.py/tool_allowlist.py/auth.matrix.py instead,
 since they're about tool/scope allowlists, not payout/state/data logic.
+GOV-004 (the compliance kill switch on automated payouts, ADR-012) lives here
+because, like the PAY rules, it is a check of an execute_payout call against a
+trusted value — the freeze state check_and_audit() reads from
+governance/controls.py, never from the caller.
 """
 
 from __future__ import annotations
@@ -15,6 +19,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from .controls import PayoutFreezeState
 
 if TYPE_CHECKING:
     from .adapter import ToolCallContext
@@ -35,6 +41,34 @@ def _ok(rule_id: str) -> RuleResult:
 
 def _deny(rule_id: str, reason: str) -> RuleResult:
     return RuleResult(rule_id=rule_id, allowed=False, reason=reason)
+
+
+# --- GOV-004: compliance kill switch — automated payouts frozen ---
+def gov_004_automated_payouts_frozen(ctx: ToolCallContext) -> RuleResult:
+    """Denies an AUTOMATED execute_payout while compliance has frozen
+    automated payouts. An officer-approved payout (officer_approval_id in
+    trusted context, supplied only by api/officer.py) is a human decision
+    and still goes through — the switch stops agents moving money on their
+    own, it does not take the humans out of the loop.
+
+    `ctx.trusted["payout_freeze"]` is populated by check_and_audit() from
+    governance/controls.py, overwriting anything a caller put there. Anything
+    other than a PayoutFreezeState (absent, a bare bool, a dict) means the
+    trusted store was not consulted -> deny (invariant 7)."""
+    if ctx.tool_name != "execute_payout":
+        return _ok("GOV-004")
+    freeze = ctx.trusted.get("payout_freeze")
+    if not isinstance(freeze, PayoutFreezeState):
+        return _deny("GOV-004", "payout freeze state was not read from the trusted governance controls store (fail closed)")
+    if not freeze.frozen or ctx.trusted.get("officer_approval_id"):
+        return _ok("GOV-004")
+    who = f" by {freeze.set_by}" if freeze.set_by else ""
+    when = f" at {freeze.set_at}" if freeze.set_at else ""
+    return _deny(
+        "GOV-004",
+        f"automated payouts are frozen by compliance{who}{when} — reason: {freeze.reason or 'none recorded'}; "
+        "only an officer-approved payout may proceed",
+    )
 
 
 # --- PAY-001: payout amount must equal the assessed payable ---
@@ -160,7 +194,12 @@ def data_002_account_number_must_be_trusted(ctx: ToolCallContext) -> RuleResult:
     return _ok("DATA-002")
 
 
+# GOV-004 first: while the kill switch is on, a frozen automated payout is
+# reported as GOV-004 (the emergency stop) regardless of which PAY rule would
+# also have refused it — one unambiguous reason for the audit log and the
+# Live Run view.
 ALL_RULES: list[Callable[[ToolCallContext], RuleResult]] = [
+    gov_004_automated_payouts_frozen,
     pay_001_amount_matches_assessment,
     pay_002_account_matches_registered,
     pay_003_high_value_requires_approval,

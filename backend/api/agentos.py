@@ -42,6 +42,7 @@ from agents.supervisor import run_claim_flow
 from api.claim_context import remaining_sum_insured as compute_remaining_sum_insured
 from api.claim_intake import router as claim_intake_router
 from api.claim_intake import scan_injection_markers
+from api.governance_controls import router as governance_controls_router
 from api.governance_selftest import router as governance_selftest_router
 from api.story_support import router as story_support_router
 from api.state_machine import ClaimStateContext, transition
@@ -72,6 +73,13 @@ app.add_middleware(
 # attempts against the token service/gateway, not claim-submission flows —
 # see api/governance_selftest.py's own docstring for why these live here.
 app.include_router(governance_selftest_router)
+
+# GET/POST /governance/payout-freeze — the compliance officer's kill switch
+# for AUTOMATED payouts (GOV-004, docs/adr/012-payout-kill-switch.md). The
+# toggle itself is governed and audited (compliance_officer /
+# set_payout_freeze); the state lives in governance/controls.py's shared
+# file so the officer API process sees it too.
+app.include_router(governance_controls_router)
 
 # POST /claims/new — the real browser-upload entrypoint (see
 # api/claim_intake.py's own docstring): a policyholder attaches actual PDF

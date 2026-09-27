@@ -4,10 +4,16 @@ The fixed sequence docs/architecture.md §7 specifies (intake ->
 medical_reviewer -> coverage -> fraud -> payout) is an `agno.workflow.
 Workflow` of deterministic `Step`s plus one `Condition`:
 
-    intake -> medical_review -> settlement -> coverage_explanation ->
-    fraud_screen -> tier_decision -> Condition(T2?)
-                                        yes: governed_payout
-                                        no:  route_to_officer
+    document_guardrail -> intake -> medical_review -> settlement ->
+    coverage_explanation -> explanation_guardrail -> fraud_screen ->
+    tier_decision -> Condition(T2?)
+                        yes: governed_payout
+                        no:  route_to_officer
+
+The two guardrail steps (agents/guardrails.py, ADR-011) are deterministic
+code, not LLM calls: instruction-like text in the documents forces T3, and
+an explanation that quotes an amount the settlement doesn't contain is
+replaced with a template built from the settlement.
 
 Why a Workflow and not an Agno Team: every real `agno.team.TeamMode`
 (coordinate / route / broadcast / tasks — confirmed by reading
@@ -59,6 +65,13 @@ if TYPE_CHECKING:
 
 from .coverage import build_coverage_agent, explain_assessment
 from .fraud import build_fraud_agent, run_fraud_screen
+from .guardrails import (
+    INJECTION_FLAG,
+    INJECTION_TIER_REASON,
+    build_fallback_explanation,
+    scan_documents,
+    validate_explanation,
+)
 from .intake import build_intake_agent, run_intake
 from .medical_reviewer import build_medical_reviewer_agent, run_medical_review
 from .payout import PayoutContext, execute_payout
@@ -99,10 +112,15 @@ class ClaimFlowContext:
     remaining_sum_insured: int
     req_id: str
     db: Session | None = None
+    # Injection guardrail (document_guardrail step). A flagged claim is
+    # still assessed, but it can never be auto-paid.
+    injection_suspected: bool = False
+    injection_markers: list[str] = field(default_factory=list)
     intake_result: IntakeResult | None = None
     finding: MedicalFinding | None = None
     assessment: CoverageAssessment | None = None
     explanation: str | None = None
+    explanation_replaced: bool = False  # set by explanation_guardrail
     fraud_screen: FraudScreen | None = None
     tier: str | None = None
     tier_reasons: list[str] = field(default_factory=list)
@@ -112,23 +130,33 @@ class ClaimFlowContext:
     error: str | None = None
 
 
-def _tier(assessment: CoverageAssessment, fraud_screen: FraudScreen) -> str:
-    """docs/use-case.md §6: T2 is "payout <= 50,000, all checks passed, no
-    flags"; T3 is everything else that isn't a plain read/write (>50,000,
-    any fraud flag, any exclusion/waiting-period issue, any rejection).
-    coverage's own recommended_decision already folds in every
+def decide_tier(
+    assessment: CoverageAssessment,
+    fraud_screen: FraudScreen,
+    *,
+    injection_suspected: bool = False,
+) -> tuple[str, list[str]]:
+    """Returns (tier, reasons). docs/use-case.md §6: T2 is "payout <= 50,000,
+    all checks passed, no flags"; T3 is everything else that isn't a plain
+    read/write (>50,000, any fraud flag, any exclusion/waiting-period issue,
+    any rejection). coverage's own recommended_decision already folds in every
     exclusion/waiting-period/confidence check medical_reviewer's finding
     feeds into (settlement.py computes recommended_decision FROM finding,
-    so nothing here needs the finding directly) — this only adds the two
-    things settlement.py can't know about: the payout ceiling and the
-    fraud screen."""
+    so nothing here needs the finding directly). This adds what
+    settlement.py can't know about: the payout ceiling, the fraud screen
+    and the injection guardrail. A claim whose documents contain
+    instruction-like text is never auto-paid, however clean the rest looks
+    (ADR-011). Pure function: no I/O."""
+    reasons: list[str] = []
+    if injection_suspected:
+        reasons.append(INJECTION_TIER_REASON)
     if assessment.recommended_decision != "approve":
-        return "T3"
+        reasons.append(f"coverage recommends '{assessment.recommended_decision}'")
     if fraud_screen.flags:
-        return "T3"
+        reasons.append(f"{len(fraud_screen.flags)} fraud flag(s)")
     if assessment.payable_amount > PAYOUT_AUTO_LIMIT:
-        return "T3"
-    return "T2"
+        reasons.append(f"payable ₹{assessment.payable_amount:,} > ₹{PAYOUT_AUTO_LIMIT:,} auto-pay ceiling")
+    return ("T3" if reasons else "T2"), reasons
 
 
 class MissingTrustedContext(RuntimeError):
@@ -170,6 +198,43 @@ def _fail_closed(fn):
 
 
 # --- Steps -------------------------------------------------------------------
+
+
+def document_guardrail(step_input: StepInput) -> StepOutput:
+    """Scans the untrusted documents for instruction-like text before any
+    agent reads them. A hit does not stop the run: intake still reads the
+    documents as delimited untrusted data (invariant 8). It is recorded on
+    the context, and from then on the claim cannot be auto-paid (the flag
+    is added after settlement, and the tier is forced to T3)."""
+    ctx = _ctx(step_input)
+    step("doc_guardrail", "active")
+    scanned = {"final_bill": ctx.bill_text, "discharge_summary": ctx.discharge_summary_text}
+    with tracer.start_as_current_span("guardrail.documents") as span:
+        scan = scan_documents(scanned)
+        span.set_attribute("req_id", ctx.req_id)
+        span.set_attribute("claim_id", ctx.claim_id)
+        span.set_attribute("flagged", scan.flagged)
+        span.set_attribute("markers", scan.markers)
+        span.set_attribute("doc_types", scan.doc_types)
+    ctx.injection_suspected = scan.flagged
+    ctx.injection_markers = scan.markers
+    data = {"flagged": scan.flagged, "markers": scan.markers, "doc_types": scan.doc_types}
+    if scan.flagged:
+        emit(
+            "guardrail", f"Injection guardrail: instruction-like text found in {', '.join(scan.doc_types)}",
+            f"{len(scan.markers)} marker(s): {', '.join(scan.markers)}. The documents are still read as UNTRUSTED data, "
+            "but this claim can no longer be auto-paid: it will be flagged and sent to a human officer (T3)",
+            level="warn", data=data,
+        )
+        summary = f"{len(scan.markers)} injection marker(s) in {', '.join(scan.doc_types)}. Auto-pay disabled for this claim"
+    else:
+        emit(
+            "guardrail", "Injection guardrail: no instruction-like text in the documents",
+            f"scanned {', '.join(scanned)} before any agent reads them", level="success", data=data,
+        )
+        summary = "No instruction-like text found"
+    step("doc_guardrail", "done", summary, data)
+    return StepOutput(content=data)
 
 
 def intake(step_input: StepInput) -> StepOutput:
@@ -245,6 +310,10 @@ def settlement(step_input: StepInput) -> StepOutput:
         finding=ctx.finding,
         policy=ctx.policy,
     )
+    if ctx.injection_suspected and INJECTION_FLAG not in assessment.flags:
+        # Persisted with the assessment (api/agentos.py), so the officer sees
+        # why the claim is in the queue.
+        assessment.flags.append(INJECTION_FLAG)
     ctx.assessment = assessment
     for deduction in assessment.deductions:
         emit("rules", f"Deduction −₹{deduction.amount:,} · clause {deduction.clause_id}", deduction.reason)
@@ -272,6 +341,53 @@ def coverage_explanation(step_input: StepInput) -> StepOutput:
     return StepOutput(content=ctx.explanation)
 
 
+def explanation_guardrail(step_input: StepInput) -> StepOutput:
+    """Every money amount in the coverage agent's explanation must be one
+    the settlement contains. If the explanation has an amount the
+    settlement doesn't contain, or is empty, it is replaced with a
+    deterministic summary of the settlement."""
+    ctx = _ctx(step_input)
+    assert ctx.assessment is not None
+    step("explanation_guardrail", "active")
+    with tracer.start_as_current_span("guardrail.explanation") as span:
+        ok, unexpected = validate_explanation(ctx.explanation or "", ctx.assessment)
+        blank = not (ctx.explanation or "").strip()
+        replaced = (not ok) or blank
+        if replaced:
+            ctx.explanation = build_fallback_explanation(ctx.assessment)
+            ctx.explanation_replaced = True
+        span.set_attribute("req_id", ctx.req_id)
+        span.set_attribute("claim_id", ctx.claim_id)
+        span.set_attribute("ok", ok)
+        span.set_attribute("unexpected_amount_count", len(unexpected))
+        span.set_attribute("replaced", replaced)
+    data = {"ok": ok, "unexpected_amounts": unexpected, "replaced": replaced}
+    if not ok:
+        invented = ", ".join(f"₹{a:,}" for a in unexpected)
+        emit(
+            "guardrail", f"Explanation guardrail: {len(unexpected)} amount(s) not in the settlement. Explanation replaced",
+            f"invented: {invented}. Replaced with a template built from the settlement "
+            f"(payable ₹{ctx.assessment.payable_amount:,}, every deduction with its clause)",
+            level="warn", data={**data, "explanation": ctx.explanation},
+        )
+        summary = f"Invented amount(s) {invented}. Replaced with the settlement template"
+    elif blank:
+        emit(
+            "guardrail", "Explanation guardrail: the coverage agent returned no explanation. Template used",
+            "built from the settlement: payable, deductions with clause ids, decision",
+            level="warn", data={**data, "explanation": ctx.explanation},
+        )
+        summary = "Empty explanation. Replaced with the settlement template"
+    else:
+        emit(
+            "guardrail", "Explanation guardrail: every amount matches the settlement",
+            "checked against claimed, payable, co-pay and each deduction (deterministic, no LLM)", level="success", data=data,
+        )
+        summary = "Every amount matches the settlement"
+    step("explanation_guardrail", "done", summary, data)
+    return StepOutput(content=data)
+
+
 def fraud_screen(step_input: StepInput) -> StepOutput:
     ctx = _ctx(step_input)
     step("fraud", "active")
@@ -294,14 +410,7 @@ def tier_decision(step_input: StepInput) -> StepOutput:
     ctx = _ctx(step_input)
     assert ctx.assessment is not None and ctx.fraud_screen is not None
     step("tier", "active")
-    ctx.tier = _tier(ctx.assessment, ctx.fraud_screen)
-    reasons: list[str] = []
-    if ctx.assessment.recommended_decision != "approve":
-        reasons.append(f"coverage recommends '{ctx.assessment.recommended_decision}'")
-    if ctx.fraud_screen.flags:
-        reasons.append(f"{len(ctx.fraud_screen.flags)} fraud flag(s)")
-    if ctx.assessment.payable_amount > PAYOUT_AUTO_LIMIT:
-        reasons.append(f"payable ₹{ctx.assessment.payable_amount:,} > ₹{PAYOUT_AUTO_LIMIT:,} auto-pay ceiling")
+    ctx.tier, reasons = decide_tier(ctx.assessment, ctx.fraud_screen, injection_suspected=ctx.injection_suspected)
     ctx.tier_reasons = reasons
     emit(
         "rules", f"Action tier {ctx.tier} decided",
@@ -318,8 +427,11 @@ def tier_decision(step_input: StepInput) -> StepOutput:
 
 
 def is_auto_payable(step_input: StepInput) -> bool:
-    """Condition evaluator: plain code, never an LLM, decides the money branch."""
-    return _ctx(step_input).tier == "T2"
+    """Condition evaluator: plain code, never an LLM, decides the money branch.
+    The injection flag is re-checked here as a second barrier: a flagged
+    claim never reaches governed_payout, even if the tier was somehow T2."""
+    ctx = _ctx(step_input)
+    return ctx.tier == "T2" and not ctx.injection_suspected
 
 
 def _hand_to_officer(ctx: ClaimFlowContext) -> None:
@@ -344,7 +456,7 @@ def governed_payout(step_input: StepInput) -> StepOutput:
     try:
         # Attempt the real, governed payout call BEFORE committing the
         # auto_approved state transition — if PAY-*/DATA-* deny it for a
-        # reason _tier's own (necessarily simpler) logic didn't anticipate,
+        # reason decide_tier's own (necessarily simpler) logic didn't anticipate,
         # the claim never enters auto_approved at all; it goes to a human
         # instead of getting stuck in an approved-but-unpaid state.
         ctx.payout_result = execute_payout(
@@ -384,12 +496,14 @@ def build_claim_workflow() -> Workflow:
     return Workflow(
         id=WORKFLOW_ID,
         name="Claim assessment",
-        description="Deterministic, governed claim pipeline: 4 Agno agents + settlement, tiering and payout in code.",
+        description="Deterministic, governed claim pipeline: 4 Agno agents + guardrails, settlement, tiering and payout in code.",
         steps=[
+            s("document_guardrail", document_guardrail, "Injection guardrail: scans untrusted documents; a hit forces T3 (never auto-paid)"),
             s("intake", intake, "Intake agent extracts bill items and facts from untrusted documents"),
             s("medical_review", medical_review, "Medical reviewer — the only step that sees medical text — returns a coded finding"),
             s("settlement", settlement, "Deterministic settlement against plan terms; each deduction cites a clause"),
             s("coverage_explanation", coverage_explanation, "Coverage agent explains the settlement in plain language"),
+            s("explanation_guardrail", explanation_guardrail, "Every amount in the explanation must come from the settlement, else a template replaces it"),
             s("fraud_screen", fraud_screen, "Fraud agent screens pseudonymised claims + hospital watchlist via the governed gateway"),
             s("tier_decision", tier_decision, "T2 (auto-pay) or T3 (human) — decided in code"),
             Condition(
@@ -436,7 +550,7 @@ def run_claim_flow(
         flow_span.set_attribute("claim_id", claim_id)
         emit(
             "agent", "Agno Workflow 'claim-assessment' started",
-            f"req_id={req_id} · intake → medical_review → settlement → coverage → fraud → tier → Condition(T2: payout | T3: officer) — order is code, not an LLM decision",
+            f"req_id={req_id} · document guardrail → intake → medical_review → settlement → coverage → explanation guardrail → fraud → tier → Condition(T2: payout | T3: officer) — order is code, not an LLM decision",
         )
 
         run = build_claim_workflow().run(input=f"assess claim {claim_id}", additional_data={"flow": ctx})
@@ -464,4 +578,4 @@ def run_claim_flow(
     )
 
 
-__all__: list[Any] = ["ClaimFlowResult", "WORKFLOW_ID", "build_claim_workflow", "run_claim_flow"]
+__all__: list[Any] = ["WORKFLOW_ID", "ClaimFlowResult", "build_claim_workflow", "decide_tier", "run_claim_flow"]
