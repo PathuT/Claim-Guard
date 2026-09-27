@@ -57,6 +57,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
+from .live_events import LiveEventSpanProcessor
 from .redaction import RedactionSpanProcessor
 
 # The resource attribute key phoenix.otel.register() itself uses to bucket
@@ -82,6 +83,10 @@ def setup_tracing(service_name: str):
     tracer_provider.add_span_processor(RedactionSpanProcessor())
     exporter = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+    # Console Story view: forwards finished spans of a live claim run to the
+    # browser. Registered after redaction, so it only ever sees redacted
+    # attributes; a no-op for any trace that isn't a live run.
+    tracer_provider.add_span_processor(LiveEventSpanProcessor())
 
     trace.set_tracer_provider(tracer_provider)
 

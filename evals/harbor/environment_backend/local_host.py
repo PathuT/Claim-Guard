@@ -28,10 +28,34 @@ ADR-006 already documents for this tradeoff.
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 from pathlib import Path, PurePosixPath
 
 from harbor.environments.base import BaseEnvironment, ExecResult
+
+
+def _windows_posix_shell() -> str | None:
+    """On Windows, `create_subprocess_shell` means cmd.exe — which doesn't
+    understand the POSIX quoting the adapter's commands use (curl -d
+    '{"claim_id": ...}') or Harbor's own setup commands (chmod -R ...).
+    Every task command was written for a POSIX shell (what a container
+    would have provided), so run them through Git for Windows' bash
+    instead. Deliberately NOT a bare shutil.which("bash"): on Windows that
+    can resolve to System32\\bash.exe, which runs inside WSL — a different
+    machine as far as files and processes are concerned."""
+    if os.name != "nt":
+        return None
+    candidates = []
+    git = shutil.which("git")
+    if git:
+        git_root = Path(git).resolve().parent.parent  # <Git>/cmd/git.exe -> <Git>
+        candidates.append(git_root / "bin" / "bash.exe")
+    candidates += [Path(r"C:\Program Files\Git\bin\bash.exe"), Path(r"C:\Program Files (x86)\Git\bin\bash.exe")]
+    return next((str(c) for c in candidates if c.exists()), None)
+
+
+_POSIX_SHELL = _windows_posix_shell()
 
 
 class LocalHostEnvironment(BaseEnvironment):
@@ -135,14 +159,25 @@ class LocalHostEnvironment(BaseEnvironment):
         boundary here to switch across, and every ClaimGuard task's own
         command (a curl call from adapter.py/verifier.py) never needed
         one."""
+        # Harbor passes `env` as the variables to ADD for this command; a
+        # container merges them onto its own environment, so do the same
+        # here rather than replacing the host's (which would drop PATH).
+        full_env = {**os.environ, **env} if env else None
         try:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                cwd=cwd,
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            if _POSIX_SHELL:
+                proc = await asyncio.create_subprocess_exec(
+                    _POSIX_SHELL, "-c", command,
+                    cwd=cwd, env=full_env,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                )
+            else:
+                proc = await asyncio.create_subprocess_shell(
+                    command,
+                    cwd=cwd,
+                    env=full_env,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
             stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
             return ExecResult(
                 stdout=stdout_bytes.decode(errors="replace"),

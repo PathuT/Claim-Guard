@@ -1,27 +1,53 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   ApiError,
   type ClaimSummary,
+  type NewClaimFields,
+  type NewClaimResult,
   type SubmitClaimResult,
   listClaims,
   submitClaim,
+  submitNewClaim,
 } from "@/lib/api";
 import { formatInr, humanizeStatus, statusStyle } from "@/lib/format";
-import { DEMO_SCENARIOS } from "@/lib/demoScenarios";
-import { NewClaimForm } from "./NewClaimForm";
+import { UploadForm } from "../live/StartPanel";
 
+type Phase = "idle" | "uploading" | "assessing" | "done";
+
+/** Policyholder view (Priya): submit a reimbursement claim with the real
+ * hospital PDFs, then see the decision and a settlement breakdown in which
+ * every deduction cites the policy clause it comes from. The same claim can
+ * be watched step by step, with every backend operation, on Live Run. */
 export default function PolicyholderPage() {
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [created, setCreated] = useState<NewClaimResult | null>(null);
+  const [result, setResult] = useState<SubmitClaimResult | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const [policyNumber, setPolicyNumber] = useState("");
   const [claims, setClaims] = useState<ClaimSummary[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
-  const [claimIdToSubmit, setClaimIdToSubmit] = useState("");
-  const [submitResult, setSubmitResult] = useState<SubmitClaimResult | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  async function handleUpload(fields: NewClaimFields) {
+    setPhase("uploading");
+    setSubmitError(null);
+    setCreated(null);
+    setResult(null);
+    try {
+      const newClaim = await submitNewClaim(fields);
+      setCreated(newClaim);
+      setPhase("assessing");
+      setResult(await submitClaim(newClaim.claim_id));
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? `${err.message}${err.reasonCode ? ` (${err.reasonCode})` : ""}` : "Something went wrong.");
+    } finally {
+      setPhase("done");
+    }
+  }
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -29,8 +55,7 @@ export default function PolicyholderPage() {
     setSearching(true);
     setSearchError(null);
     try {
-      const result = await listClaims({ policyNumber: policyNumber.trim() });
-      setClaims(result.claims);
+      setClaims((await listClaims({ policyNumber: policyNumber.trim() })).claims);
     } catch (err) {
       setSearchError(err instanceof ApiError ? err.message : "Something went wrong.");
       setClaims(null);
@@ -39,109 +64,68 @@ export default function PolicyholderPage() {
     }
   }
 
-  async function submit(claimId: string) {
-    if (!claimId.trim()) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    setSubmitResult(null);
-    try {
-      const result = await submitClaim(claimId.trim());
-      setSubmitResult(result);
-    } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : "Something went wrong.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    submit(claimIdToSubmit);
-  }
-
-  function handleDemoClick(claimId: string) {
-    setClaimIdToSubmit(claimId);
-    submit(claimId);
-  }
+  const busy = phase === "uploading" || phase === "assessing";
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Policyholder</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Submit a new claim with your own documents, replay a demo scenario, or look up your existing claims.
+        <h1 className="text-xl font-semibold tracking-tight">Policyholder — submit and track a claim</h1>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          Paid the hospital yourself? Upload the final bill and discharge summary. The documents are read for real (PDF
+          text extraction), assessed by the claim workflow, and you get a decision with every deduction explained against your
+          policy. Want to see every backend step as it happens? Use{" "}
+          <Link href="/live" className="font-medium text-chart-1 underline">
+            Live Run
+          </Link>
+          .
         </p>
       </div>
 
       <section className="rounded-lg border border-border bg-card p-5">
         <h2 className="font-medium text-card-foreground">Submit a new claim</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Attach real PDF files — they are genuinely read by the intake agent (real text extraction, not a
-          pre-seeded replay). After the claim is created it is submitted for assessment automatically.
+        <p className="mb-4 mt-1 text-xs text-muted-foreground">
+          The documents and the stated illness are treated as untrusted input: they are read, never obeyed.
         </p>
-        <NewClaimForm onCreated={(claimId) => submit(claimId)} />
-      </section>
+        <UploadForm disabled={busy} onSubmit={handleUpload} />
 
-      <section className="rounded-lg border border-border bg-card p-5">
-        <h2 className="font-medium text-card-foreground">Submit by claim_id</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Already have a claim_id (e.g. from a demo scenario below)? Submit it directly.
-        </p>
-        <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-          <input
-            value={claimIdToSubmit}
-            onChange={(e) => setClaimIdToSubmit(e.target.value)}
-            placeholder="e.g. CLM-2026-018833"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? "Submitting…" : "Submit"}
-          </button>
-        </form>
+        {phase !== "idle" && (
+          <ol className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+            <Progress label="Documents uploaded & read" state={created ? "done" : phase === "uploading" ? "active" : "pending"} />
+            <span className="text-muted-foreground">→</span>
+            <Progress label="Agents assessing (≈ 1 min)" state={result ? "done" : phase === "assessing" ? "active" : "pending"} />
+            <span className="text-muted-foreground">→</span>
+            <Progress label="Decision" state={result ? "done" : "pending"} />
+          </ol>
+        )}
+        {created && (
+          <ul className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
+            {created.documents.map((d) => (
+              <li key={d.doc_type}>
+                <span className="font-medium text-foreground">{d.doc_type.replace("_", " ")}</span>: {d.pages} page(s),{" "}
+                {d.extracted_chars.toLocaleString("en-IN")} characters extracted, fingerprint {d.sha256.slice(0, 12)}…
+              </li>
+            ))}
+          </ul>
+        )}
         {submitError && <p className="mt-3 text-sm text-destructive">{submitError}</p>}
-        {submitResult && <SubmitResultCard result={submitResult} />}
+        {result && <DecisionCard result={result} />}
       </section>
 
       <section className="rounded-lg border border-border bg-card p-5">
-        <h2 className="font-medium text-card-foreground">Demo scenarios</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          One click submits a real, already-seeded claim demonstrating a specific agent/governance behaviour.
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {DEMO_SCENARIOS.map((scenario) => (
-            <button
-              key={scenario.id}
-              type="button"
-              onClick={() => handleDemoClick(scenario.claimId)}
-              disabled={submitting}
-              className="flex flex-col items-start gap-0.5 rounded-md border border-border bg-secondary px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-card disabled:opacity-50"
-            >
-              <span className="text-sm font-medium text-card-foreground">{scenario.label}</span>
-              <span className="text-xs text-muted-foreground">{scenario.description}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-border bg-card p-5">
-        <h2 className="font-medium text-card-foreground">Find your claims</h2>
-        <form onSubmit={handleSearch} className="mt-3 flex gap-2">
+        <h2 className="font-medium text-card-foreground">Your claims</h2>
+        <form onSubmit={handleSearch} className="mt-3 flex flex-wrap gap-2">
           <input
             value={policyNumber}
             onChange={(e) => setPolicyNumber(e.target.value)}
-            placeholder="e.g. KHA-SIL-004512"
-            className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            placeholder="Policy number, e.g. KHA-SIL-004512"
+            className="min-w-[16rem] flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <button
             type="submit"
             disabled={searching}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
           >
-            {searching ? "Searching…" : "Search"}
+            {searching ? "Searching…" : "Find claims"}
           </button>
         </form>
         {searchError && <p className="mt-3 text-sm text-destructive">{searchError}</p>}
@@ -158,22 +142,45 @@ export default function PolicyholderPage() {
   );
 }
 
-function SubmitResultCard({ result }: { result: SubmitClaimResult }) {
+function Progress({ label, state }: { label: string; state: "pending" | "active" | "done" }) {
+  const style = state === "done" ? "bg-success/10 text-success" : state === "active" ? "animate-pulse bg-chart-1/10 text-chart-1" : "bg-muted text-muted-foreground";
+  return <li className={`rounded-full px-3 py-1 font-medium ${style}`}>{state === "done" ? "✓ " : ""}{label}</li>;
+}
+
+const OUTCOME_TEXT: Record<string, string> = {
+  paid: "Approved and paid to your registered bank account.",
+  pending_human: "Your claim is with a claims officer for a decision. The assessment below is the recommendation they will review.",
+  needs_resubmission: "A required document is missing or unreadable. Please upload it and resubmit.",
+};
+
+function DecisionCard({ result }: { result: SubmitClaimResult }) {
+  const deductions = result.deductions ?? [];
   return (
-    <div className="mt-4 rounded-md border border-border bg-secondary p-4 text-sm">
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-card-foreground">{result.claim_id}</span>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(result.final_state)}`}>
-          {humanizeStatus(result.final_state)}
-        </span>
+    <div className="mt-5 rounded-md border border-border bg-secondary p-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono text-xs text-muted-foreground">{result.claim_id}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(result.final_state)}`}>{humanizeStatus(result.final_state)}</span>
       </div>
+      <p className="mt-2 font-medium text-card-foreground">{OUTCOME_TEXT[result.final_state] ?? humanizeStatus(result.final_state)}</p>
       {result.payable_amount != null && (
-        <p className="mt-2 tabular-nums text-card-foreground">Payable amount: {formatInr(result.payable_amount)}</p>
+        <p className="mt-2 text-2xl font-semibold tabular-nums text-card-foreground">{formatInr(result.payable_amount)}</p>
       )}
-      {result.explanation && <p className="mt-1 text-muted-foreground">{result.explanation}</p>}
-      {result.flags && result.flags.length > 0 && (
-        <p className="mt-1 text-xs text-muted-foreground">Flags: {result.flags.join(", ")}</p>
+      {deductions.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Deductions</p>
+          <ul className="mt-1 flex flex-col gap-1">
+            {deductions.map((d, i) => (
+              <li key={i} className="flex flex-wrap justify-between gap-2 tabular-nums">
+                <span className="text-card-foreground">
+                  {d.reason} <span className="font-mono text-xs text-muted-foreground">· policy clause {d.clause_id}</span>
+                </span>
+                <span className="text-destructive">−{formatInr(d.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
+      {result.explanation && <p className="mt-3 border-l-2 border-border pl-3 text-muted-foreground">{result.explanation}</p>}
     </div>
   );
 }
@@ -183,9 +190,7 @@ function ClaimSummaryCard({ claim }: { claim: ClaimSummary }) {
     <div className="rounded-md border border-border p-4 text-sm">
       <div className="flex items-center justify-between">
         <span className="font-medium text-card-foreground">{claim.claim_id}</span>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(claim.status)}`}>
-          {humanizeStatus(claim.status)}
-        </span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(claim.status)}`}>{humanizeStatus(claim.status)}</span>
       </div>
       <p className="mt-1 text-muted-foreground">{claim.stated_illness}</p>
       <p className="mt-1 text-xs tabular-nums text-muted-foreground">

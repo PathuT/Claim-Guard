@@ -12,6 +12,7 @@ import { DEMO_SCENARIOS } from "@/lib/demoScenarios";
  * governance/tool_allowlist.py themselves. */
 const AGENT_AUDITED_TOOLS: Record<string, string[]> = {
   supervisor: ["set_claim_state"],
+  fraud: ["search_claims_pseudonymised", "read_hospital"],
   payout: ["execute_payout"],
 };
 
@@ -36,12 +37,12 @@ export default function PipelinePage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Agent pipeline</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Every claim runs through 5 real agents, each seeing only what it needs and passing forward a structured
-          result — never raw text — before a governed payout or human handoff. This view shows each agent&apos;s
-          actual stored output for one claim, plus which steps are independently confirmed in the governance audit
-          log.
+        <h1 className="text-xl font-semibold tracking-tight">Agent pipeline — Agno Workflow &ldquo;claim-assessment&rdquo;</h1>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          Every claim runs through one deterministic Agno Workflow: four Agno agents (intake, medical reviewer, coverage,
+          fraud) plus settlement, tiering and payout in code, with a Condition deciding auto-pay (T2) or a human officer
+          (T3). Each step passes forward a typed result — never raw medical text. This view shows each step&apos;s stored
+          output for one claim, and which steps made governed calls recorded in the audit log.
         </p>
       </div>
 
@@ -129,7 +130,7 @@ function PipelineView({ status, auditEntries }: { status: ClaimStatus; auditEntr
 
   return (
     <div className="flex flex-col gap-3">
-      <StepCard title="1 · Intake" agentId="intake" auditEntries={auditEntries}>
+      <StepCard title="1 · Intake agent (Agno)" agentId="intake" auditEntries={auditEntries}>
         {a.intake_summary ? (
           <div className="text-sm text-card-foreground">
             <p className="tabular-nums">Bill total: {formatInr(a.intake_summary.bill_total)} · Stay: {a.intake_summary.length_of_stay_hours}h</p>
@@ -144,7 +145,7 @@ function PipelineView({ status, auditEntries }: { status: ClaimStatus; auditEntr
         )}
       </StepCard>
 
-      <StepCard title="2 · Medical reviewer" agentId="medical_reviewer" auditEntries={auditEntries}>
+      <StepCard title="2 · Medical reviewer agent (Agno)" agentId="medical_reviewer" auditEntries={auditEntries}>
         {a.medical_finding ? (
           <div className="text-sm text-card-foreground">
             <p>ICD-10 {a.medical_finding.icd10} · {a.medical_finding.diagnosis_category} · confidence {(a.medical_finding.confidence * 100).toFixed(0)}%</p>
@@ -155,7 +156,7 @@ function PipelineView({ status, auditEntries }: { status: ClaimStatus; auditEntr
         )}
       </StepCard>
 
-      <StepCard title="3 · Coverage" agentId="coverage" auditEntries={auditEntries}>
+      <StepCard title="3 · Settlement (code) + coverage agent (Agno)" agentId="coverage" auditEntries={auditEntries}>
         <p className="text-sm tabular-nums text-card-foreground">Payable: {formatInr(a.payable_amount)} of {formatInr(a.claimed_amount)} claimed</p>
         {a.deductions.length > 0 && (
           <ul className="mt-1 text-xs text-muted-foreground">
@@ -167,7 +168,7 @@ function PipelineView({ status, auditEntries }: { status: ClaimStatus; auditEntr
         {a.flags.length > 0 && <p className="mt-1 text-xs text-warning">Flags: {a.flags.join(", ")}</p>}
       </StepCard>
 
-      <StepCard title="4 · Fraud" agentId="fraud" auditEntries={auditEntries}>
+      <StepCard title="4 · Fraud agent (Agno) — governed data access" agentId="fraud" auditEntries={auditEntries}>
         {a.fraud_flags.length === 0 ? (
           <p className="text-xs text-muted-foreground">No fraud signals detected.</p>
         ) : (
@@ -182,7 +183,7 @@ function PipelineView({ status, auditEntries }: { status: ClaimStatus; auditEntr
         )}
       </StepCard>
 
-      <StepCard title="5 · Payout" agentId="payout" auditEntries={auditEntries}>
+      <StepCard title="5 · Tier → governed payout or officer (Condition)" agentId="payout" auditEntries={auditEntries}>
         <p className="text-sm text-card-foreground">
           Final state: <strong>{status.status.replace(/_/g, " ")}</strong>
         </p>
@@ -194,11 +195,13 @@ function PipelineView({ status, auditEntries }: { status: ClaimStatus; auditEntr
       </StepCard>
 
       <div className="rounded-md bg-secondary p-3 text-xs text-muted-foreground">
-        &ldquo;no audit entry (in-process)&rdquo; means that agent&apos;s work is a real, structured output (visible
-        above) rather than a gateway-mediated tool call — it never queried the data gateway/token service directly,
-        so nothing about it appears in the governance audit log. Only <code>supervisor</code> (state transitions)
-        and <code>payout</code> (the actual money movement) make governed tool calls today. See the Compliance page
-        for those real audit entries, and Phoenix (localhost:6006) for the full trace.
+        &ldquo;no audit entry (in-process)&rdquo; means that step receives its inputs from the workflow (documents, or
+        the previous step&apos;s typed result) and makes no data-access call of its own, so there is nothing for the
+        governance layer to record. Every step that touches data or state does make governed calls, each checked by the
+        AGT adapter and recorded in the audit log: <code>fraud</code> (pseudonymised claims + hospital watchlist, via a
+        scoped token and the data gateway), <code>payout</code> (the money movement) and <code>supervisor</code> (every
+        claim state transition). See the Compliance page for the audit log and Phoenix (localhost:6006) for the full
+        trace.
       </div>
     </div>
   );

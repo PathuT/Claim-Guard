@@ -41,11 +41,7 @@ eval:
 	# dev stack already running in another terminal (`make up`) — the
 	# adapter talks to the real http://localhost:8000, not a per-task
 	# sandboxed backend.
-	cd evals/harbor && PYTHONPATH=$$(pwd) uv run harbor run \
-		--path tasks \
-		--agent adapter.adapter:ClaimGuardAgent \
-		--verifier adapter.verifier:ClaimGuardVerifier \
-		--env environment_backend.local_host:LocalHostEnvironment
+	cd evals/harbor && uv run python run_evals.py
 
 compliance-report:
 	cd backend && uv run python -m api.compliance_report  # added in M9

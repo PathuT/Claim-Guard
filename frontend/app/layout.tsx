@@ -15,10 +15,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ClaimGuard Console",
-  description: "Governed, auditable multi-agent health-insurance claims console (M8).",
+  description: "Governed, observable agentic AI for health-insurance claims — Agno, Microsoft AGT, scoped JWTs, Phoenix and Harbor.",
 };
 
 const NAV_LINKS = [
+  { href: "/architecture", label: "Architecture" },
+  { href: "/live", label: "Live Run" },
   { href: "/policyholder", label: "Policyholder" },
   { href: "/officer", label: "Officer" },
   { href: "/compliance", label: "Compliance" },
@@ -30,6 +32,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // Browser extensions (e.g. a "locator" dev tool) inject attributes onto
+      // <html> before React hydrates; this silences that one-level mismatch only.
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <header className="border-b border-border bg-card">

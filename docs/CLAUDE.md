@@ -93,7 +93,7 @@ If one blocks progress, stop and ask.
 ## Architecture (summary)
 
 ```
-Next.js console ──► Agno AgentOS (supervisor team)
+Next.js console ──► Agno AgentOS (claim-assessment Workflow)
                         │
                         ▼
                  AGT governance adapter  (policy check on every tool call, audit)
@@ -137,7 +137,7 @@ Arize Phoenix: traces across all layers      Harbor: containerized scenario eval
 ## Tech stack
 
 - Python 3.12, managed with `uv`
-- **Agno** (agents, teams, AgentOS runtime)
+- **Agno** (agents, a deterministic Workflow for orchestration — not a Team, see ADR-001 — AgentOS runtime)
 - **Microsoft Agent Governance Toolkit (AGT)** Python SDK — public preview, pin the version.
   Used for: policy engine, agent identity, trust scoring, execution rings, audit chain
 - PyJWT with EdDSA (Ed25519) for the token service

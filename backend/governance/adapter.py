@@ -29,6 +29,8 @@ from typing import Any
 
 from opentelemetry import trace
 
+from observability.live_events import emit
+
 from .flight_recorder import get_recorder
 from .rules import RuleResult, run_all_rules
 from .tool_allowlist import TOOL_CALL_BUDGET_PER_REQUEST, tool_allowed
@@ -130,6 +132,14 @@ def check_and_audit(ctx: ToolCallContext) -> str:
         span.set_attribute("decision", "allow")
         recorder.log_success(trace_id)
         span.set_attribute("audit_trace_id", trace_id)
+        emit(
+            "governance",
+            f"AGT policy check ALLOW — {ctx.agent_id} → {ctx.tool_name}",
+            f"GOV-001 allowlist ✓ · GOV-002 budget {_tool_call_counts[ctx.req_id]}/{TOOL_CALL_BUDGET_PER_REQUEST} · "
+            f"PAY/STATE/DATA rules ✓ · audit entry {trace_id[:8]} appended to hash-chained FlightRecorder",
+            level="success",
+            data={"agent_id": ctx.agent_id, "tool_name": ctx.tool_name, "audit_id": trace_id},
+        )
         return trace_id
 
 
@@ -138,3 +148,10 @@ def _deny(recorder, trace_id: str, span, result: RuleResult) -> None:
     span.set_attribute("rule_id", result.rule_id)
     span.set_attribute("audit_trace_id", trace_id)
     recorder.log_violation(trace_id, f"{result.rule_id}: {result.reason}")
+    emit(
+        "governance",
+        f"AGT policy check DENY — {result.rule_id}",
+        f"{result.reason} · audit entry {trace_id[:8]} appended to hash-chained FlightRecorder",
+        level="deny",
+        data={"rule_id": result.rule_id, "audit_id": trace_id},
+    )

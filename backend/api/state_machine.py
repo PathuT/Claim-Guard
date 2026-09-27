@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 from auth.token_service import revoke_req_id
 from governance.adapter import ToolCallContext, check_and_audit
 from governance.client import ToolCallDenied
+from observability.live_events import emit
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -149,6 +150,7 @@ def transition(
 
     if new_state in REVOKE_TOKENS_ON_ENTERING:
         revoke_req_id(req_id)
+        emit("token", f"All tokens for this request revoked on entering '{new_state}'", f"req_id={req_id} · no further agent data access possible for this claim run")
 
     if db is not None:
         from data_gateway.models import Claim
@@ -157,3 +159,4 @@ def transition(
         if claim is not None:
             claim.status = new_state
             db.commit()
+    emit("state", f"Claim state: {ctx.current_state} → {new_state}", "governed set_claim_state transition, persisted to Postgres" if db is not None else "governed set_claim_state transition", level="success")

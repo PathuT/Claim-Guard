@@ -9,7 +9,7 @@ import { OfficerDetail } from "./OfficerDetail";
 const QUEUE_KEY = ["officer-queue", "pending_human"] as const;
 
 export default function OfficerPage() {
-  const [officerId, setOfficerId] = useState("");
+  const [officerId, setOfficerId] = useState("officer-arjun");
   const [selected, setSelected] = useState<string | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR(QUEUE_KEY, () => listClaims({ status: "pending_human" }));
@@ -26,10 +26,12 @@ export default function OfficerPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Officer — T3 human review queue</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every claim below is stuck at <code className="rounded bg-muted px-1">pending_human</code> — the
-          supervisor cannot decide these itself (docs/architecture.md §8: only an officer creates a rejection or
-          approves a fraud-flagged/high-value payout).
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          The claim workflow routed each claim below to <code className="rounded bg-muted px-1">pending_human</code>:
+          above ₹50,000, a fraud flag, an exclusion or waiting-period issue, or a recommended rejection. Agents can only
+          recommend. Only an officer decision record can approve these payouts (PAY-003 / PAY-004) or reject a claim
+          (STATE-001). You see the coded findings, flags and policy clauses, not raw medical text; reading the discharge
+          summary requires an audited break-glass with a reason.
         </p>
         <label className="mt-3 flex max-w-sm flex-col gap-1 text-sm">
           Your officer ID (recorded on every decision)

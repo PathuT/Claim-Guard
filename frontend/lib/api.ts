@@ -171,10 +171,21 @@ export interface NewClaimFields {
   dischargeSummary: File;
 }
 
+export interface UploadedDocument {
+  doc_type: string;
+  filename: string | null;
+  size_bytes: number;
+  pages: number;
+  extracted_chars: number;
+  sha256: string;
+  injection_markers: string[];
+}
+
 export interface NewClaimResult {
   claim_id: string;
   status: string;
   missing_documents: string[];
+  documents: UploadedDocument[];
 }
 
 /** The real upload entrypoint (backend/api/claim_intake.py) — a
@@ -298,4 +309,157 @@ export function submitOfficerDecision(req: OfficerDecisionRequest): Promise<Offi
     method: "POST",
     body: JSON.stringify(req),
   });
+}
+
+// --- Live Run view (backend/api/story_support.py, api/agentos.py live endpoints) ---
+
+export interface SamplePack {
+  pack_id: string;
+  title: string;
+  persona: string;
+  summary: string;
+  expected: string;
+  policy_number: string;
+  member_id: string;
+  hospital_id: string;
+  admission_date: string;
+  discharge_date: string;
+  stated_illness: string;
+  claimed_amount: number;
+  poisoned: boolean;
+}
+
+export function listSamplePacks(): Promise<SamplePack[]> {
+  return request(`${AGENTOS_URL}/samples`);
+}
+
+export function samplePdfUrl(packId: string, docType: "final_bill" | "discharge_summary"): string {
+  return `${AGENTOS_URL}/samples/${encodeURIComponent(packId)}/${docType}.pdf`;
+}
+
+/** Downloads a sample PDF's real bytes so it can be submitted through the
+ * ordinary upload endpoint, exactly like a file picked from disk. */
+export async function fetchSampleFile(packId: string, docType: "final_bill" | "discharge_summary"): Promise<File> {
+  let response: Response;
+  try {
+    response = await fetch(samplePdfUrl(packId, docType));
+  } catch {
+    throw new ApiError(`Could not reach ${AGENTOS_URL} — is the backend running?`, 0);
+  }
+  if (!response.ok) throw new ApiError(`Could not load sample ${packId}/${docType}`, response.status);
+  const blob = await response.blob();
+  return new File([blob], `${packId}_${docType}.pdf`, { type: "application/pdf" });
+}
+
+export interface HospitalRef {
+  hospital_id: string;
+  name: string;
+  city: string;
+  network: boolean;
+  watchlist: boolean;
+}
+
+export function listHospitals(): Promise<HospitalRef[]> {
+  return request(`${AGENTOS_URL}/reference/hospitals`);
+}
+
+export interface PolicyRef {
+  policy_number: string;
+  holder_name: string;
+  plan: string;
+  sum_insured: number;
+  start_date: string;
+  members: { member_id: string; name: string; age: number; relationship_to_holder: string }[];
+}
+
+export function getPolicy(policyNumber: string): Promise<PolicyRef> {
+  return request(`${AGENTOS_URL}/reference/policies/${encodeURIComponent(policyNumber)}`);
+}
+
+/** One event from a live claim run (backend/observability/live_events.py). */
+export type LiveEvent =
+  | { kind: "start"; ts: number; claim_id: string; trace_id: string }
+  | { kind: "log" | "trace"; ts: number; layer: string; title: string; detail: string | null; level: string; data: Record<string, unknown> }
+  | { kind: "step"; ts: number; step: string; status: string; summary: string | null; data: Record<string, unknown> }
+  | { kind: "result"; ts: number; result: Record<string, unknown>; trace_id: string; elapsed_ms: number }
+  | { kind: "error"; ts: number; message: string; reason_code?: string }
+  | { kind: "end"; ts: number };
+
+/** POSTs to a live endpoint and parses its text/event-stream body. fetch
+ * + a stream reader rather than EventSource: EventSource can only GET, and
+ * it auto-reconnects — which here would silently re-run the claim. */
+async function streamLive(url: string, onEvent: (event: LiveEvent) => void, signal?: AbortSignal): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "POST", signal });
+  } catch {
+    throw new ApiError(`Could not reach ${url} — is the backend running?`, 0);
+  }
+  if (!response.ok || !response.body) throw new ApiError(response.statusText || "Live stream failed", response.status);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary: number;
+    while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+      const chunk = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const data = chunk
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n");
+      if (data) onEvent(JSON.parse(data) as LiveEvent);
+    }
+  }
+}
+
+export function streamClaimRun(claimId: string, onEvent: (event: LiveEvent) => void, signal?: AbortSignal): Promise<void> {
+  return streamLive(`${AGENTOS_URL}/claims/${encodeURIComponent(claimId)}/live`, onEvent, signal);
+}
+
+export function streamAttack(claimId: string, onEvent: (event: LiveEvent) => void, signal?: AbortSignal): Promise<void> {
+  return streamLive(`${AGENTOS_URL}/claims/${encodeURIComponent(claimId)}/live/attack`, onEvent, signal);
+}
+
+export interface EvalTrial {
+  scenario: string;
+  description: string | null;
+  outcome: number | null;
+  governance: number | null;
+  duration_s: number | null;
+  error: string | null;
+  failures: string[];
+}
+
+export interface EvalJob {
+  job: string;
+  started_at: string | null;
+  finished: boolean;
+  n_trials: number;
+  outcome_pass_rate: number | null;
+  governance_pass_rate: number | null;
+  trials: EvalTrial[];
+}
+
+/** Latest Harbor eval job (evals/harbor, `npm run eval`), or null if none has run. */
+export function getLatestEvals(): Promise<EvalJob | null> {
+  return request(`${AGENTOS_URL}/evals/latest`);
+}
+
+export interface ComplianceSummary {
+  stats: { total_actions: number; by_verdict: Record<string, number>; top_agents: { agent_id: string; count: number }[] };
+  integrity: { valid: boolean; total_entries: number; first_tampered_id?: number | null; error?: string | null };
+  denied_by_rule: Record<string, number>;
+  medical_reviewer_access_count: number;
+  break_glass_accesses: { trace_id: string; timestamp: string; officer_id: string | null; reason: string | null }[];
+}
+
+/** Governance summary from the live FlightRecorder (backend/api/story_support.py). */
+export function getComplianceSummary(): Promise<ComplianceSummary> {
+  return request(`${AGENTOS_URL}/compliance/summary`);
 }

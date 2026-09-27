@@ -4,15 +4,16 @@
   "description": "Root dev-orchestration only — actual code lives in backend/ and frontend/.",
   "scripts": {
     "dev": "concurrently -n phoenix,frontend,token-svc,gateway,agentos,officer -c cyan,green,yellow,blue,magenta,red \"npm:dev:phoenix\" \"npm:dev:frontend\" \"npm:dev:token-service\" \"npm:dev:gateway\" \"npm:dev:agentos\" \"npm:dev:officer\"",
-    "dev:phoenix": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run phoenix serve",
+    "dev:phoenix": "cd backend && uv run phoenix serve",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:token-service": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn auth.app:app --port 8100",
-    "dev:gateway": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn data_gateway.app:app --port 8200",
-    "dev:agentos": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn api.agentos:app --port 8000",
-    "dev:officer": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run uvicorn api.officer:app --port 8400",
-    "dev:hello-agent": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m agents.hello_agent",
-    "demo:story": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python ../demo.py",
-    "seed": "cd backend && PATH=\"$HOME/.local/bin:$PATH\" uv run python -m data_gateway.seed"
+    "dev:token-service": "cd backend && uv run uvicorn auth.app:app --port 8100",
+    "dev:gateway": "cd backend && uv run uvicorn data_gateway.app:app --port 8200",
+    "dev:agentos": "cd backend && uv run uvicorn api.agentos:app --port 8000",
+    "dev:officer": "cd backend && uv run uvicorn api.officer:app --port 8400",
+    "dev:hello-agent": "cd backend && uv run python -m agents.hello_agent",
+    "demo:story": "cd backend && uv run python ../demo.py",
+    "seed": "cd backend && uv run python -m data_gateway.seed",
+    "eval": "cd evals/harbor && uv run python run_evals.py"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

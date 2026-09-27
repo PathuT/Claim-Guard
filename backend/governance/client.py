@@ -38,6 +38,7 @@ from typing import Any
 import httpx
 from opentelemetry import trace
 
+from observability.live_events import emit
 from observability.tracing import inject_traceparent
 
 from .adapter import ToolCallContext, check_and_audit
@@ -89,12 +90,23 @@ def _get_token(agent_id: str, req_id: str, scope: str, claim_id: str | None) -> 
     # (check_and_audit's governance.decision span, below) as this request's
     # parent, so the token service's token.issue span joins the same trace
     # instead of starting its own.
+    emit("identity", f"{agent_id} signed an Ed25519 identity assertion", f"AGT agent identity · req_id={req_id} · requested scope {scope}")
     headers = inject_traceparent({})
     resp = httpx.post(f"{TOKEN_SERVICE_URL}/tokens", json=body, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
     if resp.status_code != 200:
         detail = resp.json().get("detail", {})
+        emit("token", f"Token service REFUSED — {detail.get('reason_code', 'TOKEN-DENIED')}", detail.get("message", resp.text), level="deny")
         raise ToolCallDenied(detail.get("reason_code", "TOKEN-DENIED"), detail.get("message", resp.text))
-    return resp.json()["token"]
+    issued = resp.json()
+    # jti only — the token itself is never logged (docs/CLAUDE.md invariant 11).
+    emit(
+        "token",
+        f"Token service minted a scoped JWT for {agent_id}",
+        f"EdDSA-signed · scope={scope} · aud=data-gateway · ttl={max(0, int(issued['exp'] - ts))}s · jti={issued['jti']}",
+        level="success",
+        data={"jti": issued["jti"], "scope": scope},
+    )
+    return issued["token"]
 
 
 def _b64(raw: bytes) -> str:
@@ -166,10 +178,22 @@ def call_tool(request: ToolCallRequest) -> dict:
             body = {"scope": request.scope, "claim_id": request.claim_id}
             resp = httpx.post(f"{DATA_GATEWAY_URL}/query", json=body, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
 
+        endpoint = "/write" if request.scope.endswith(":write") else "/query"
         if resp.status_code != 200:
             detail = resp.json().get("detail", {})
+            emit("gateway", f"Data gateway DENIED POST {endpoint} — {detail.get('reason_code', 'GATEWAY-DENIED')}", detail.get("message", resp.text), level="deny")
             raise ToolCallDenied(detail.get("reason_code", "GATEWAY-DENIED"), detail.get("message", resp.text))
-        return resp.json()
+        payload = resp.json()
+        rows = payload.get("rows")
+        emit(
+            "gateway",
+            f"Data gateway POST {endpoint} — {request.scope}",
+            "JWT verified (signature, audience, expiry, revocation, scope, row binding) · "
+            + (f"{len(rows)} row(s) returned, field-allowlisted" if rows is not None else "write committed to Postgres"),
+            level="success",
+        )
+        emit("database", f"Postgres {'INSERT' if endpoint == '/write' else 'SELECT'} on {request.scope.split(':')[0]}", "Supabase Postgres 16 · reached only through the data gateway")
+        return payload
 
 
 def new_req_id() -> str:

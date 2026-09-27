@@ -27,6 +27,7 @@ from agno.agent import Agent
 
 from governance.client import ToolCallDenied, ToolCallRequest, call_tool
 
+from .model_config import GROQ_RATE_LIMIT_RETRY
 from .schemas import FraudScreen
 
 INSTRUCTIONS = """You are the fraud agent for ClaimGuard, a health insurance claims system.
@@ -66,7 +67,7 @@ def build_fraud_agent(model_provider: str | None = None) -> Agent:
     if provider == "groq":
         from agno.models.groq import Groq
 
-        model = Groq(id=os.environ.get("MODEL_ID", "openai/gpt-oss-120b"))
+        model = Groq(id=os.environ.get("MODEL_ID", "openai/gpt-oss-120b"), **GROQ_RATE_LIMIT_RETRY)
     elif provider == "gemini":
         from agno.models.google import Gemini
 
@@ -82,6 +83,7 @@ def build_fraud_agent(model_provider: str | None = None) -> Agent:
         instructions=INSTRUCTIONS,
         output_schema=FraudScreen,
         markdown=False,
+        telemetry=False,  # no usage metadata leaves this system (Agno defaults to True)
     )
 
 

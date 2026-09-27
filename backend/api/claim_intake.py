@@ -72,10 +72,46 @@ def _extract_pdf_text(raw_bytes: bytes) -> str:
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
+def _pdf_page_count(raw_bytes: bytes) -> int:
+    import io
+
+    import pypdf
+
+    return len(pypdf.PdfReader(io.BytesIO(raw_bytes)).pages)
+
+
+# Phrases typical of prompt-injection attempts hidden in documents
+# (docs/use-case.md §8 S06). Detection here is observational only — it
+# labels the document for the Console's Story view and changes nothing
+# about how the agents treat it: every document is already untrusted
+# (docs/CLAUDE.md invariant 8), flagged or not.
+INJECTION_MARKERS = (
+    "system override", "ignore previous", "ignore all previous", "pre-approved", "do not route",
+    "note to ai", "admin instruction", "supersedes all policy", "skip fraud", "approve automatically",
+    "redirect payout", "pay rs", "do not flag",
+)
+
+
+def scan_injection_markers(text: str) -> list[str]:
+    lowered = text.lower()
+    return [marker for marker in INJECTION_MARKERS if marker in lowered]
+
+
+class UploadedDocument(BaseModel):
+    doc_type: str
+    filename: str | None = None
+    size_bytes: int
+    pages: int
+    extracted_chars: int
+    sha256: str
+    injection_markers: list[str] = []
+
+
 class NewClaimResponse(BaseModel):
     claim_id: str
     status: str
     missing_documents: list[str] = []
+    documents: list[UploadedDocument] = []
 
 
 @router.post("/claims/new", response_model=NewClaimResponse)
@@ -127,6 +163,7 @@ async def submit_new_claim(
 
     uploaded_files = {"final_bill": final_bill, "discharge_summary": discharge_summary}
     missing: list[str] = []
+    documents: list[UploadedDocument] = []
     for doc_type, upload in uploaded_files.items():
         raw_bytes = await upload.read()
         if not raw_bytes:
@@ -140,11 +177,21 @@ async def submit_new_claim(
             db.rollback()
             raise HTTPException(status_code=422, detail={"reason_code": "INTAKE-UNREADABLE-PDF", "message": f"could not read {doc_type} as a PDF: {exc}"}) from None
 
+        sha256 = hashlib.sha256(raw_bytes).hexdigest()
         db.add(ClaimDocument(
             claim_id=claim_id, file_ref=str(file_path), doc_type=doc_type,
-            extracted_text=extracted_text, sha256=hashlib.sha256(raw_bytes).hexdigest(), is_poisoned=False,
+            extracted_text=extracted_text, sha256=sha256, is_poisoned=False,
+        ))
+        documents.append(UploadedDocument(
+            doc_type=doc_type, filename=upload.filename, size_bytes=len(raw_bytes), pages=_pdf_page_count(raw_bytes),
+            extracted_chars=len(extracted_text), sha256=sha256, injection_markers=scan_injection_markers(extracted_text),
         ))
 
+    # The real sha256 of every uploaded file, so the fraud agent's
+    # duplicate_bill check (agents/fraud.py, matching on doc_hashes) works
+    # for genuinely uploaded documents too — before this, uploaded claims
+    # had an empty doc_hashes list and could never match a re-submitted bill.
+    claim.doc_hashes = [d.sha256 for d in documents]
     db.commit()
 
-    return NewClaimResponse(claim_id=claim_id, status="submitted", missing_documents=missing)
+    return NewClaimResponse(claim_id=claim_id, status="submitted", missing_documents=missing, documents=documents)

@@ -14,6 +14,7 @@ import os
 from agno.agent import Agent
 
 from .intake import wrap_untrusted
+from .model_config import GROQ_RATE_LIMIT_RETRY
 from .schemas import MedicalFinding
 
 INSTRUCTIONS = """You are the medical reviewer agent for ClaimGuard, a health insurance claims system.
@@ -62,7 +63,7 @@ def build_medical_reviewer_agent(model_provider: str | None = None) -> Agent:
     if provider == "groq":
         from agno.models.groq import Groq
 
-        model = Groq(id=os.environ.get("MODEL_ID", "openai/gpt-oss-120b"))
+        model = Groq(id=os.environ.get("MODEL_ID", "openai/gpt-oss-120b"), **GROQ_RATE_LIMIT_RETRY)
     elif provider == "gemini":
         from agno.models.google import Gemini
 
@@ -78,6 +79,7 @@ def build_medical_reviewer_agent(model_provider: str | None = None) -> Agent:
         instructions=INSTRUCTIONS,
         output_schema=MedicalFinding,
         markdown=False,
+        telemetry=False,  # no usage metadata leaves this system (Agno defaults to True)
     )
 
 

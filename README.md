@@ -274,6 +274,19 @@ a real claim (upload your own PDFs, or use one of the demo-scenario buttons to
 replay a seeded S01-S10 case), then follow it through `/pipeline`, `/officer`
 (for claims that stop at human review), and `/compliance`.
 
+### Presenting it
+
+- `http://localhost:3005/architecture`: the brief compared with what was built,
+  system and request-flow diagrams, the security model, design decisions, what was
+  learned about each framework, and a demo tour.
+- `http://localhost:3005/live`: a live, narrated claim run. Upload real PDFs (or a
+  sample pack) and watch every backend operation stream in: agent runs, LLM calls,
+  governance allow/deny, token issuance, gateway checks, state changes and spans. It
+  also has a requirements-proof panel, a red-team replay of the S06 injection, and the
+  Harbor scoreboard.
+- `npm run eval`: runs the Harbor suite (S01–S10) without Docker, from any shell.
+- [`docs/demo-script.md`](docs/demo-script.md): the presenter walkthrough.
+
 To fire the smoke-test agent and confirm a trace appears in Phoenix, in a second
 terminal (with `npm run dev` still running):
 
@@ -292,14 +305,12 @@ make test-security
 Run the Harbor eval suite (needs `npm run dev`'s stack already running — no Docker):
 
 ```bash
-cd evals/harbor
-PYTHONPATH=$(pwd) uv run harbor run --path tasks --include-task-name S01 \
-  --agent adapter.adapter:ClaimGuardAgent --verifier adapter.verifier:ClaimGuardVerifier \
-  --env environment_backend.local_host:LocalHostEnvironment
+npm run eval                                          # all 10 scenarios
+cd evals/harbor && uv run python run_evals.py S01 S06 # just these
 ```
 
-Swap `--include-task-name S01` for any of `S02`-`S10`, or drop the flag to run the
-whole suite.
+Scenarios run one at a time: they all drive the same local stack and the same
+rate-limited LLM key. `run_evals.py` works from bash, cmd and PowerShell.
 
 ---
 
