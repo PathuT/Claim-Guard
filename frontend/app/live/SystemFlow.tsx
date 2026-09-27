@@ -27,7 +27,7 @@ const MAIN_PATH: Node[] = [
 const SIDE: Node[] = [
   { id: "audit", name: "Audit trail", tech: "AGT FlightRecorder", role: "Append-only, hash-chained", layers: ["audit"] },
   { id: "trace", name: "Tracing", tech: "OpenTelemetry → Arize Phoenix", role: "One redacted trace per claim", layers: ["trace"] },
-  { id: "evals", name: "Evaluations", tech: "Harbor", role: "S01–S10 re-run as automated tests", layers: [] },
+  { id: "evals", name: "Evaluations", tech: "Harbor", role: "Checks every claim after it runs; S01–S10 as a suite", layers: ["evals"] },
 ];
 
 function stats(lines: LogLine[]) {

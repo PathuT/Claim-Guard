@@ -54,6 +54,10 @@ backend/flight_recorder.archived-*.db
 # trial artifacts) — created fresh by every `harbor run`/`make eval`, not
 # source.
 evals/harbor/jobs/
+# Per-claim Harbor checks started from the Live Run page (api/claim_evaluation.py):
+# generated one-task datasets and their job output.
+evals/harbor/claim_jobs/
+evals/harbor/live_tasks/
 
 # Sample document packs rendered on demand for the Console Story view
 # (backend/api/story_support.py) — reproducible, not source.

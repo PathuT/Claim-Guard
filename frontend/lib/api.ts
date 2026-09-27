@@ -446,6 +446,39 @@ export interface EvalJob {
   trials: EvalTrial[];
 }
 
+export interface ClaimEvaluationCheck {
+  group: "outcome" | "governance" | string;
+  id: string;
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface ClaimEvaluation {
+  claim_id: string;
+  status: "none" | "running" | "done" | "error";
+  job: string | null;
+  expectation_source: string | null;
+  started_at: number | null;
+  duration_s: number | null;
+  outcome: number | null;
+  governance: number | null;
+  checks: ClaimEvaluationCheck[];
+  error: string | null;
+}
+
+/** Start the per-claim Harbor check (backend/api/claim_evaluation.py). */
+export function startClaimEvaluation(claimId: string, packId: string | null): Promise<ClaimEvaluation> {
+  return request(`${AGENTOS_URL}/claims/${encodeURIComponent(claimId)}/evaluation`, {
+    method: "POST",
+    body: JSON.stringify({ pack_id: packId }),
+  });
+}
+
+export function getClaimEvaluation(claimId: string): Promise<ClaimEvaluation> {
+  return request(`${AGENTOS_URL}/claims/${encodeURIComponent(claimId)}/evaluation`);
+}
+
 /** Latest Harbor eval job (evals/harbor, `npm run eval`), or null if none has run. */
 export function getLatestEvals(): Promise<EvalJob | null> {
   return request(`${AGENTOS_URL}/evals/latest`);

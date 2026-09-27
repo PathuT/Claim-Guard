@@ -33,9 +33,9 @@ Use the numbered section bar at the top of the page.
    irreversible money movement, and documents written by a potential attacker."
 2. **Brief → built → beyond.** Go down the table. For each technology in the brief,
    say what was built, then point at the green "Beyond the brief" column.
-3. **What we added.** Eight cards, each with the risk it closes: the injection and
+3. **What we added.** Nine cards, each with the risk it closes: the injection and
    anti-hallucination guardrails, the payout kill switch, the cost and token meter, the
-   multi-writer audit-chain fix, the fail-closed workflow, the red-team replay and Live
+   multi-writer audit-chain fix, the fail-closed workflow, the per-claim Harbor check, the red-team replay and Live
    Run. Key line: "None of these depends on the model behaving."
 4. **System architecture.** Walk the five zones left to right, following the numbered
    arrows. Key line: "A request can only move through these zones in order. No
@@ -65,6 +65,9 @@ Use the numbered section bar at the top of the page.
   - *Fraud*: point at identity signed → token minted (ttl ≈300 s, jti only) →
     gateway verified the JWT → rows returned.
   - *Tier T2*: governance allows the payout, and it's paid.
+- Wait for the **"Harbor verified this claim"** card under the outcome (15–30 s). Harbor
+  has just checked this exact claim with the same verifier as S01–S10: the outcome, and
+  the audit-trail evidence behind it. "Every claim is evaluated, not just the test suite."
 - Switch the right panel to **Requirements proof**: every requirement is ticked off by
   evidence from this run.
 - Point at the **System flow** boxes that lit up with counts: that's the stack at work.

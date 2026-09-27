@@ -25,6 +25,7 @@ export const TECH: Tech[] = [
   { id: "postgres", name: "Postgres · Supabase", role: "9 collections, pgvector for policy terms" },
   { id: "flightrecorder", name: "FlightRecorder", role: "Append-only, hash-chained audit log" },
   { id: "otel", name: "OpenTelemetry → Phoenix", role: "One redacted trace per claim across every service" },
+  { id: "harbor", name: "Harbor", role: "Verifies every claim after it runs: outcome and governance evidence" },
 ];
 
 /** Backend event layer (observability/live_events.py) → technology id. */
@@ -41,6 +42,7 @@ export const LAYER_TECH: Record<string, string> = {
   gateway: "gateway",
   database: "postgres",
   audit: "flightrecorder",
+  evals: "harbor",
   state: "agt",
   payment: "gateway",
   trace: "otel",
@@ -60,6 +62,7 @@ export const LAYER_LABEL: Record<string, string> = {
   gateway: "GATEWAY",
   database: "DATABASE",
   audit: "AUDIT",
+  evals: "HARBOR",
   state: "STATE",
   payment: "PAYMENT",
   trace: "TRACE",

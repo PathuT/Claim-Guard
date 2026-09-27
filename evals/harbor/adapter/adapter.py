@@ -44,6 +44,10 @@ from harbor.models.agent.context import AgentContext
 BACKEND_URL = "http://localhost:8000"
 CLAIM_ID_RE = re.compile(r"^claim_id:\s*(\S+)\s*$", re.MULTILINE)
 PROBE_ENDPOINT_RE = re.compile(r"^probe_endpoint:\s*(\S+)\s*$", re.MULTILINE)
+# live_claim tasks (run_claim_eval.py): the claim has already been run from
+# the Live Run page, so the adapter only reads its current state — running
+# it again would spend LLM tokens and fail the state machine's transitions.
+REVIEW_CLAIM_ID_RE = re.compile(r"^review_claim_id:\s*(\S+)\s*$", re.MULTILINE)
 
 
 class ClaimGuardAgent(BaseAgent):
@@ -70,6 +74,11 @@ class ClaimGuardAgent(BaseAgent):
         probe_match = PROBE_ENDPOINT_RE.search(instruction)
         if probe_match is not None:
             await self._run_probe(probe_match.group(1), environment, context)
+            return
+
+        review_match = REVIEW_CLAIM_ID_RE.search(instruction)
+        if review_match is not None:
+            await self._review_claim(review_match.group(1), environment, context)
             return
 
         match = CLAIM_ID_RE.search(instruction)
@@ -113,6 +122,20 @@ class ClaimGuardAgent(BaseAgent):
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"AgentOS response for claim_id={claim_id!r} was not valid JSON: {result.stdout!r}") from exc
         context.metadata["agentos_response"] = parsed
+
+    async def _review_claim(self, claim_id: str, environment: BaseEnvironment, context: AgentContext) -> None:
+        """live_claim tasks: record the finished claim's state (GET, never
+        POST) so the trial log shows what the verifier then scores."""
+        result = await environment.exec(f"curl -sS {BACKEND_URL}/claims/{claim_id}", timeout_sec=30)
+        context.metadata["claim_id"] = claim_id
+        context.metadata["agentos_response_raw"] = result.stdout
+        context.metadata["agentos_exec_return_code"] = result.return_code
+        if result.return_code != 0:
+            raise RuntimeError(f"GET /claims/{claim_id} failed (curl exit {result.return_code}): stderr={result.stderr!r}")
+        try:
+            context.metadata["agentos_response"] = json.loads(result.stdout or "")
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"AgentOS response for claim_id={claim_id!r} was not valid JSON: {result.stdout!r}") from exc
 
     async def _run_probe(self, probe_path: str, environment: BaseEnvironment, context: AgentContext) -> None:
         """S07/S08: calls one of api/governance_selftest.py's probe

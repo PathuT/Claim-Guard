@@ -194,6 +194,7 @@ const BRIEF = [
       "No Docker: a custom Harbor environment runs tasks on the host (also on Windows)",
       "Verifier checks the audit trail for the expected rule ids, not just the answer",
       "Scoreboard surfaced in the console",
+      "A Harbor check of each claim runs automatically at the end of every Live Run",
     ],
     evidence: "evals/harbor/",
   },
@@ -323,6 +324,14 @@ const ADDED: { name: string; tag: string; risk: string; how: string; see: string
     risk: "Agno runs the remaining steps after a failure and reports the run “completed”.",
     how: "Every step is wrapped: an error is recorded and StepOutput(stop=True) halts the run. Step retries are off, so a payout is never silently re-attempted.",
     see: "backend/agents/supervisor.py",
+  },
+  {
+    name: "Harbor check after every claim",
+    tag: "Harbor · per-claim task",
+    risk: "A claim can look right on screen while its audit trail doesn't back it up.",
+    how: "When a claim finishes, a one-task Harbor job checks it with the same verifier as S01–S10: expected result, auto-pay rules, clause per deduction, every step governed, medical access, payout evidence, rule-coded denials, hash chain. Read-only, so no AI calls; the S01–S10 scoreboard is untouched.",
+    see: "Live Run → Harbor verified this claim",
+    href: "/live",
   },
   {
     name: "Red-team replay",

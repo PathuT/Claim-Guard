@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 from agents.settlement import PolicyContext
 from agents.supervisor import run_claim_flow
 from api.claim_context import remaining_sum_insured as compute_remaining_sum_insured
+from api.claim_evaluation import router as claim_evaluation_router
 from api.claim_intake import router as claim_intake_router
 from api.claim_intake import scan_injection_markers
 from api.governance_controls import router as governance_controls_router
@@ -90,6 +91,10 @@ app.include_router(claim_intake_router)
 # Console Story view support: sample document packs and reference data
 # (api/story_support.py) — read-only helpers for the narrated demo.
 app.include_router(story_support_router)
+
+# Per-claim Harbor check the Live Run page starts after every claim
+# (api/claim_evaluation.py): read-only, results kept apart from S01-S10.
+app.include_router(claim_evaluation_router)
 
 
 class SubmitClaimRequest(BaseModel):

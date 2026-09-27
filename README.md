@@ -70,6 +70,7 @@ These were added because each one closes a real risk, not for decoration.
 | **Live Run and requirements proof** | Reviewers can't see inside a backend. | Every backend operation streams to the UI over SSE: agent runs, LLM calls, allow/deny, identity, tokens, gateway, state changes and spans. Each requirement of the brief is ticked off by live evidence from that run. | `/live` |
 | **Red-team replay** | "Would it actually stop an agent that obeyed the injection?" | Replays the injected payout through the real governance path: PAY-001 (amount), PAY-002 (account), DATA-001 (medical records) and GOV-003 (scope), then an audit-integrity check. | Live Run → "Run the red-team attack" |
 | **Realistic hospital documents** | Toy PDFs make the demo look fake. | Generated hospital bills and discharge summaries with letterhead, registration numbers, barcode, QR code, stamp and itemised charges. The poisoned version carries invisible text. | Live Run → sample packs; `data/samples/` |
+| **Harbor check after every claim** | A demo claim could look right while its audit trail doesn't back it up. | When a Live Run claim finishes, the backend writes a one-task Harbor dataset for that claim and runs it with the same adapter, verifier and no-Docker environment as S01–S10. It is read-only, so it makes no AI calls. Outcome: the expected result for a sample pack or seeded scenario, plus rules every claim must meet (T2 auto-pay limits, flagged documents never paid, a clause for every deduction). Governance: every step governed, medical text only touched by the permitted agents, the payout matches the audit trail, every denial names its rule, and the hash chain is intact. Results go to `claim_jobs/`, so the S01–S10 scoreboard is untouched. | Live Run → "Harbor verified this claim" card |
 | **Harbor without Docker** | Harbor assumes containers, which aren't available everywhere. | A custom `BaseEnvironment` maps container paths to trial directories and runs a POSIX shell on the host (Git Bash on Windows). | `npm run eval` |
 
 ---
@@ -341,6 +342,11 @@ The **Harbor scenarios** are:
 
 Each is scored on the **outcome** (status, tier, amount) **and the governance
 evidence**, i.e. the expected rule ids in the audit trail.
+
+**After every Live Run claim**, Harbor also checks that one claim on its own
+(`evals/harbor/run_claim_eval.py`, started by `POST /claims/{id}/evaluation`), and
+the result appears on the Live Run page. It uses the same verifier, reads the
+claim without re-running it, and writes to `evals/harbor/claim_jobs/`.
 
 ---
 

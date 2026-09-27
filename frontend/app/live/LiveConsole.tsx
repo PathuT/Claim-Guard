@@ -29,6 +29,7 @@ const LAYER_COLOR: Record<string, string> = {
   gateway: "#73daca",
   database: "#7dcfff",
   audit: "#c0caf5",
+  evals: "#e0af68",
   state: "#ff9e64",
   payment: "#9ece6a",
   trace: "#565f89",

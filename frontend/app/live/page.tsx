@@ -5,18 +5,22 @@ import { useRef, useState } from "react";
 import {
   ApiError,
   type AuditEntry,
+  type ClaimEvaluation,
   type LiveEvent,
   type NewClaimFields,
   type SamplePack,
   fetchSampleFile,
   getClaimAudit,
+  getClaimEvaluation,
   listSamplePacks,
+  startClaimEvaluation,
   streamAttack,
   streamClaimRun,
   submitNewClaim,
 } from "@/lib/api";
 import { formatInr, humanizeStatus, severityStyle, statusStyle } from "@/lib/format";
 import { ATTACK_STEPS, CHAPTERS, type Chapter, MILESTONES, RULE_TEXT, TECH } from "@/lib/liveRun";
+import { ClaimEvaluationCard } from "./ClaimEvaluationCard";
 import { EvalsPanel } from "./EvalsPanel";
 import { LiveConsole, type LogLine, RunMeter, TechStrip } from "./LiveConsole";
 import { StartPanel } from "./StartPanel";
@@ -59,9 +63,15 @@ export default function LiveRunPage() {
   const [error, setError] = useState<string | null>(null);
   const [poisoned, setPoisoned] = useState(false);
   const [panel, setPanel] = useState<"log" | "requirements">("log");
+  const [evaluation, setEvaluation] = useState<ClaimEvaluation | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
 
   const startedAt = useRef(0);
   const nextId = useRef(0);
+  // Which sample pack (if any) the current claim came from, so Harbor knows
+  // the expected outcome; and a run counter so a new run stops old polling.
+  const packId = useRef<string | null>(null);
+  const runToken = useRef(0);
 
   const busy = phase === "uploading" || phase === "running" || phase === "attacking";
 
@@ -78,6 +88,10 @@ export default function LiveRunPage() {
     setAudit(null);
     setAttack(null);
     setError(null);
+    setEvaluation(null);
+    setEvaluating(false);
+    packId.current = null;
+    runToken.current += 1;
   }
 
   function log(
@@ -128,9 +142,11 @@ export default function LiveRunPage() {
     setClaimId(id);
     setPhase("running");
     log("console", `POST /claims/${id}/live — streaming the assessment`, "Next.js → AgentOS (FastAPI) · text/event-stream");
+    let assessed = false;
     try {
       await streamClaimRun(id, (event) =>
         handleEvent(event, (r) => {
+          assessed = true;
           setResult(r as unknown as RunResult);
           log("console", "Assessment complete", `final state: ${String(r.final_state)}`, "success");
         }),
@@ -145,6 +161,45 @@ export default function LiveRunPage() {
       setError(err instanceof ApiError ? err.message : "The live stream failed.");
     }
     setPhase("done");
+    if (assessed) void evaluateClaim(id);
+  }
+
+  /** After every claim: Harbor checks this one claim (outcome + governance
+   * evidence) with the same verifier as S01–S10, then the card shows why. */
+  async function evaluateClaim(id: string) {
+    const token = runToken.current;
+    setEvaluating(true);
+    log("evals", "Harbor: checking this claim", "one-task Harbor job · same verifier as S01–S10 · read-only, no AI calls");
+    try {
+      let current = await startClaimEvaluation(id, packId.current);
+      const deadline = Date.now() + 5 * 60_000;
+      while (current.status === "running" && Date.now() < deadline) {
+        if (token !== runToken.current) return;
+        setEvaluation(current);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        current = await getClaimEvaluation(id);
+      }
+      if (token !== runToken.current) return;
+      setEvaluation(current);
+      if (current.status === "done") {
+        const passed = current.outcome === 1 && current.governance === 1;
+        const failed = current.checks.filter((c) => !c.passed).map((c) => c.label);
+        log(
+          "evals",
+          passed ? "Harbor: outcome ✓ governance ✓ — claim verified" : `Harbor: ${failed.length} check(s) failed`,
+          passed ? `${current.checks.length} checks passed · ${current.expectation_source}` : failed.join(" · "),
+          passed ? "success" : "error",
+        );
+      } else {
+        log("evals", "Harbor check did not complete", current.error ?? `status ${current.status}`, "warn");
+      }
+    } catch (err) {
+      if (token !== runToken.current) return;
+      log("evals", "Harbor check could not start", err instanceof ApiError ? err.message : "request failed", "warn");
+      setEvaluation({ claim_id: id, status: "error", job: null, expectation_source: null, started_at: null, duration_s: null, outcome: null, governance: null, checks: [], error: err instanceof ApiError ? err.message : "request failed" });
+    } finally {
+      if (token === runToken.current) setEvaluating(false);
+    }
   }
 
   async function runUpload(fields: NewClaimFields, runTitle: string) {
@@ -182,6 +237,7 @@ export default function LiveRunPage() {
 
   async function handleSamplePack(pack: SamplePack) {
     reset(pack.title);
+    packId.current = pack.pack_id;
     setPoisoned(pack.poisoned);
     setPhase("uploading");
     log("console", "Fetching the sample PDFs", "real files rendered by the synthetic-data generator (reportlab)");
@@ -299,6 +355,7 @@ export default function LiveRunPage() {
                 />
               ))}
               {result && <Outcome result={result} claimId={claimId} payoutRefusedBy={payoutRefusedBy} />}
+              {result && (evaluating || evaluation) && <ClaimEvaluationCard evaluation={evaluation} starting={evaluating && !evaluation} />}
               {result && (
                 <AttackChapter
                   poisoned={poisoned}
