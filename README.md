@@ -198,7 +198,7 @@ flowchart LR
 | Page | What it shows |
 |---|---|
 | `/architecture` | Problem, brief → built → added, system and sequence diagrams, added features, security model, ADRs, framework findings, demo tour |
-| `/live` | **Live Run**: sample packs or your own PDFs, narrated chapters, streaming backend log, meter, requirements proof, red-team replay, Harbor scoreboard |
+| `/live` | **Live Run**: sample packs or your own PDFs, narrated chapters, **Agents at work** (each agent's AI calls, policy checks and every short-lived JWT it was issued: scope, TTL, jti), streaming backend log, meter, requirements proof, red-team replay, the Harbor check of each claim, and a live Harbor panel (run S01–S10 or one scenario from the page, with progress, plus the history of per-claim checks) |
 | `/policyholder` | Submit a claim; see status, payable amount and every deduction with its clause |
 | `/officer` | T3 queue: findings, fraud flags, clauses, break-glass, approve / partial / reject |
 | `/compliance` | KPIs, denials by rule, activity by agent, break-glass use, audit-chain integrity, **payout kill switch** |

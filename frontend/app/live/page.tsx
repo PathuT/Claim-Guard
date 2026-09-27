@@ -20,6 +20,7 @@ import {
 } from "@/lib/api";
 import { formatInr, humanizeStatus, severityStyle, statusStyle } from "@/lib/format";
 import { ATTACK_STEPS, CHAPTERS, type Chapter, MILESTONES, RULE_TEXT, TECH } from "@/lib/liveRun";
+import { AgentsPanel } from "./AgentsPanel";
 import { ClaimEvaluationCard } from "./ClaimEvaluationCard";
 import { EvalsPanel } from "./EvalsPanel";
 import { LiveConsole, type LogLine, RunMeter, TechStrip } from "./LiveConsole";
@@ -101,8 +102,9 @@ export default function LiveRunPage() {
     level = "info",
     kind: "log" | "trace" = "log",
     data: Record<string, unknown> = {},
+    step: string | null = null,
   ) {
-    const line: LogLine = { id: nextId.current++, t: performance.now() - startedAt.current, kind, layer, level, title, detail, data };
+    const line: LogLine = { id: nextId.current++, t: performance.now() - startedAt.current, kind, layer, level, title, detail, data, step };
     setLines((prev) => [...prev, line]);
   }
 
@@ -117,7 +119,7 @@ export default function LiveRunPage() {
         break;
       case "log":
       case "trace":
-        log(event.layer, event.title, event.detail, event.level, event.kind, event.data ?? {});
+        log(event.layer, event.title, event.detail, event.level, event.kind, event.data ?? {}, event.step ?? null);
         break;
       case "step":
         setStep(event.step, event.status, event.summary, event.data);
@@ -195,8 +197,16 @@ export default function LiveRunPage() {
       }
     } catch (err) {
       if (token !== runToken.current) return;
-      log("evals", "Harbor check could not start", err instanceof ApiError ? err.message : "request failed", "warn");
-      setEvaluation({ claim_id: id, status: "error", job: null, expectation_source: null, started_at: null, duration_s: null, outcome: null, governance: null, checks: [], error: err instanceof ApiError ? err.message : "request failed" });
+      // A bare 404 here means AgentOS is still running code from before the
+      // per-claim Harbor endpoint existed; say so instead of "Not Found".
+      const message =
+        err instanceof ApiError && err.status === 404 && !err.reasonCode
+          ? "AgentOS is running an older build without the Harbor check endpoint. Restart `npm run dev` and run the claim again."
+          : err instanceof ApiError
+            ? err.message
+            : "request failed";
+      log("evals", "Harbor check could not start", message, "warn");
+      setEvaluation({ claim_id: id, status: "error", job: null, expectation_source: null, started_at: null, duration_s: null, outcome: null, governance: null, checks: [], error: message });
     } finally {
       if (token === runToken.current) setEvaluating(false);
     }
@@ -335,6 +345,8 @@ export default function LiveRunPage() {
           </section>
 
           <SystemFlow lines={lines} live={busy} />
+
+          <AgentsPanel lines={lines} steps={steps} running={phase === "running"} complete={result != null || (phase !== "running" && phase !== "uploading")} />
 
           {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 

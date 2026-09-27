@@ -90,12 +90,14 @@ def _get_token(agent_id: str, req_id: str, scope: str, claim_id: str | None) -> 
     # (check_and_audit's governance.decision span, below) as this request's
     # parent, so the token service's token.issue span joins the same trace
     # instead of starting its own.
-    emit("identity", f"{agent_id} signed an Ed25519 identity assertion", f"AGT agent identity · req_id={req_id} · requested scope {scope}")
+    emit("identity", f"{agent_id} signed an Ed25519 identity assertion", f"AGT agent identity · req_id={req_id} · requested scope {scope}",
+         data={"agent_id": agent_id, "scope": scope})
     headers = inject_traceparent({})
     resp = httpx.post(f"{TOKEN_SERVICE_URL}/tokens", json=body, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
     if resp.status_code != 200:
         detail = resp.json().get("detail", {})
-        emit("token", f"Token service REFUSED — {detail.get('reason_code', 'TOKEN-DENIED')}", detail.get("message", resp.text), level="deny")
+        emit("token", f"Token service REFUSED — {detail.get('reason_code', 'TOKEN-DENIED')}", detail.get("message", resp.text), level="deny",
+             data={"agent_id": agent_id, "scope": scope, "rule_id": detail.get("reason_code", "TOKEN-DENIED")})
         raise ToolCallDenied(detail.get("reason_code", "TOKEN-DENIED"), detail.get("message", resp.text))
     issued = resp.json()
     # jti only — the token itself is never logged (docs/CLAUDE.md invariant 11).
@@ -104,7 +106,7 @@ def _get_token(agent_id: str, req_id: str, scope: str, claim_id: str | None) -> 
         f"Token service minted a scoped JWT for {agent_id}",
         f"EdDSA-signed · scope={scope} · aud=data-gateway · ttl={max(0, int(issued['exp'] - ts))}s · jti={issued['jti']}",
         level="success",
-        data={"jti": issued["jti"], "scope": scope},
+        data={"jti": issued["jti"], "scope": scope, "agent_id": agent_id, "ttl_s": max(0, int(issued["exp"] - ts))},
     )
     return issued["token"]
 
@@ -181,7 +183,8 @@ def call_tool(request: ToolCallRequest) -> dict:
         endpoint = "/write" if request.scope.endswith(":write") else "/query"
         if resp.status_code != 200:
             detail = resp.json().get("detail", {})
-            emit("gateway", f"Data gateway DENIED POST {endpoint} — {detail.get('reason_code', 'GATEWAY-DENIED')}", detail.get("message", resp.text), level="deny")
+            emit("gateway", f"Data gateway DENIED POST {endpoint} — {detail.get('reason_code', 'GATEWAY-DENIED')}", detail.get("message", resp.text), level="deny",
+                 data={"agent_id": request.agent_id, "scope": request.scope, "rule_id": detail.get("reason_code", "GATEWAY-DENIED")})
             raise ToolCallDenied(detail.get("reason_code", "GATEWAY-DENIED"), detail.get("message", resp.text))
         payload = resp.json()
         rows = payload.get("rows")
@@ -191,6 +194,7 @@ def call_tool(request: ToolCallRequest) -> dict:
             "JWT verified (signature, audience, expiry, revocation, scope, row binding) · "
             + (f"{len(rows)} row(s) returned, field-allowlisted" if rows is not None else "write committed to Postgres"),
             level="success",
+            data={"agent_id": request.agent_id, "scope": request.scope, "rows": len(rows) if rows is not None else None},
         )
         emit("database", f"Postgres {'INSERT' if endpoint == '/write' else 'SELECT'} on {request.scope.split(':')[0]}", "Supabase Postgres 16 · reached only through the data gateway")
         return payload

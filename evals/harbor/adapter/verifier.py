@@ -316,8 +316,9 @@ def score_live_claim(status_json: str, audit_json: str, summary_json: str, expec
     misplaced = [f"{e.get('agent_id')}→{e.get('tool_name')}" for e in allowed
                  if e.get("tool_name") in MEDICAL_TOOLS and e.get("agent_id") != MEDICAL_TOOLS[e["tool_name"]]]
     medical_calls = sum(1 for e in allowed if e.get("tool_name") in MEDICAL_TOOLS)
-    _check(checks, "governance", "medical-minimised", "Medical text touched only by intake and the medical reviewer", not misplaced,
-           f"violations: {misplaced}" if misplaced else f"{medical_calls} medical-record call(s), all by the permitted agent")
+    _check(checks, "governance", "medical-minimised", "No other agent reached medical records", not misplaced,
+           f"violations: {misplaced}" if misplaced
+           else f"no medical-record access by any agent outside intake and the medical reviewer ({medical_calls} permitted call(s))")
 
     payouts = sum(1 for e in allowed if e.get("tool_name") == "execute_payout")
     expected_payouts = 1 if state == "paid" else 0

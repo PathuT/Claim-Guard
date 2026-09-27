@@ -110,7 +110,7 @@ def check_and_audit(ctx: ToolCallContext) -> str:
         # GOV-001: tool not in this agent's allowlist -> deny before anything else.
         if not tool_allowed(ctx.agent_id, ctx.tool_name):
             result = RuleResult(rule_id="GOV-001", allowed=False, reason=f"tool {ctx.tool_name!r} not in {ctx.agent_id!r}'s allowlist")
-            _deny(recorder, trace_id, span, result)
+            _deny(recorder, trace_id, span, result, ctx)
             raise GovernanceDenied(result.rule_id, result.reason)
 
         # GOV-002: per-request tool-call budget (circuit breaker).
@@ -120,7 +120,7 @@ def check_and_audit(ctx: ToolCallContext) -> str:
                 rule_id="GOV-002", allowed=False,
                 reason=f"tool-call budget ({TOOL_CALL_BUDGET_PER_REQUEST}) exceeded for req_id {ctx.req_id!r}",
             )
-            _deny(recorder, trace_id, span, result)
+            _deny(recorder, trace_id, span, result, ctx)
             raise GovernanceDenied(result.rule_id, result.reason)
 
         # GOV-004 (compliance kill switch): the freeze state is fetched here,
@@ -138,7 +138,7 @@ def check_and_audit(ctx: ToolCallContext) -> str:
         # that isn't execute_payout).
         for result in run_all_rules(ctx):
             if not result.allowed:
-                _deny(recorder, trace_id, span, result)
+                _deny(recorder, trace_id, span, result, ctx)
                 raise GovernanceDenied(result.rule_id, result.reason)
 
         span.set_attribute("decision", "allow")
@@ -156,7 +156,7 @@ def check_and_audit(ctx: ToolCallContext) -> str:
         return trace_id
 
 
-def _deny(recorder, trace_id: str, span, result: RuleResult) -> None:
+def _deny(recorder, trace_id: str, span, result: RuleResult, ctx: ToolCallContext) -> None:
     span.set_attribute("decision", "deny")
     span.set_attribute("rule_id", result.rule_id)
     span.set_attribute("audit_trace_id", trace_id)
@@ -166,5 +166,5 @@ def _deny(recorder, trace_id: str, span, result: RuleResult) -> None:
         f"AGT policy check DENY — {result.rule_id}",
         f"{result.reason} · audit entry {trace_id[:8]} appended to hash-chained FlightRecorder",
         level="deny",
-        data={"rule_id": result.rule_id, "audit_id": trace_id},
+        data={"rule_id": result.rule_id, "audit_id": trace_id, "agent_id": ctx.agent_id, "tool_name": ctx.tool_name},
     )

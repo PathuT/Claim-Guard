@@ -11,6 +11,9 @@ export interface LogLine {
   level: string;
   title: string;
   detail: string | null;
+  /** The workflow step that was running when the event happened (intake,
+   * medical, coverage, fraud, payout, ...), stamped by the backend. */
+  step?: string | null;
   /** The event's structured payload, kept so the run meter can sum it
    * (LLM token counts and durations, governance rule ids, token jtis). */
   data: Record<string, unknown>;

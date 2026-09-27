@@ -379,7 +379,7 @@ export function getPolicy(policyNumber: string): Promise<PolicyRef> {
 /** One event from a live claim run (backend/observability/live_events.py). */
 export type LiveEvent =
   | { kind: "start"; ts: number; claim_id: string; trace_id: string }
-  | { kind: "log" | "trace"; ts: number; layer: string; title: string; detail: string | null; level: string; data: Record<string, unknown> }
+  | { kind: "log" | "trace"; ts: number; layer: string; title: string; detail: string | null; level: string; step?: string | null; data: Record<string, unknown> }
   | { kind: "step"; ts: number; step: string; status: string; summary: string | null; data: Record<string, unknown> }
   | { kind: "result"; ts: number; result: Record<string, unknown>; trace_id: string; elapsed_ms: number }
   | { kind: "error"; ts: number; message: string; reason_code?: string }
@@ -477,6 +477,63 @@ export function startClaimEvaluation(claimId: string, packId: string | null): Pr
 
 export function getClaimEvaluation(claimId: string): Promise<ClaimEvaluation> {
   return request(`${AGENTOS_URL}/claims/${encodeURIComponent(claimId)}/evaluation`);
+}
+
+export interface SuiteRow {
+  scenario: string;
+  description: string | null;
+  verifies: string[];
+  uses_ai: boolean;
+  state: "never_run" | "queued" | "running" | "done";
+  outcome: number | null;
+  governance: number | null;
+  duration_s: number | null;
+  ran_at: string | null;
+  job: string | null;
+  error: string | null;
+  failures: string[];
+}
+
+export interface SuiteRun {
+  scenarios: string[];
+  started_at: number;
+  finished: boolean;
+  exit_code: number | null;
+}
+
+export interface Suite {
+  rows: SuiteRow[];
+  outcome_pass_rate: number | null;
+  governance_pass_rate: number | null;
+  scored: number;
+  last_run_at: string | null;
+  run: SuiteRun | null;
+}
+
+/** S01–S10: each scenario's latest Harbor result, plus the run in progress (backend/api/harbor_suite.py). */
+export function getSuite(): Promise<Suite> {
+  return request(`${AGENTOS_URL}/evals/suite`);
+}
+
+/** Start Harbor on all scenarios (empty list) or the ones given. */
+export function runSuite(scenarios: string[] = []): Promise<SuiteRun> {
+  return request(`${AGENTOS_URL}/evals/suite/run`, { method: "POST", body: JSON.stringify({ scenarios }) });
+}
+
+export interface ClaimCheckSummary {
+  claim_id: string;
+  job: string;
+  ran_at: string | null;
+  outcome: number | null;
+  governance: number | null;
+  expectation_source: string | null;
+  checks: ClaimEvaluationCheck[];
+  error: string | null;
+}
+
+/** Per-claim Harbor checks started from Live Run, newest first. */
+export function listClaimChecks(): Promise<ClaimCheckSummary[]> {
+  return request(`${AGENTOS_URL}/evals/claims`);
 }
 
 /** Latest Harbor eval job (evals/harbor, `npm run eval`), or null if none has run. */

@@ -40,6 +40,10 @@ from opentelemetry.sdk.trace.export import SpanProcessor
 from .redaction import MEDICAL_REDACTED, redact_value
 
 _channels: dict[int, queue.Queue] = {}
+# The workflow step currently running in each live trace (set by step(...,
+# "active")). Every event is stamped with it, so the console can attribute
+# LLM calls, tokens and governance decisions to the agent doing the work.
+_current_step: dict[int, str] = {}
 _lock = threading.Lock()
 
 # Our own hand-rolled spans already get a richer, explicit emit() at the
@@ -56,13 +60,17 @@ def attach(trace_id: int, channel: queue.Queue) -> None:
 def detach(trace_id: int) -> None:
     with _lock:
         _channels.pop(trace_id, None)
+        _current_step.pop(trace_id, None)
+
+
+def _current_trace_id() -> int | None:
+    span_context = trace.get_current_span().get_span_context()
+    return span_context.trace_id if span_context.is_valid else None
 
 
 def _channel_for_current_trace() -> queue.Queue | None:
-    span_context = trace.get_current_span().get_span_context()
-    if not span_context.is_valid:
-        return None
-    return _channels.get(span_context.trace_id)
+    trace_id = _current_trace_id()
+    return None if trace_id is None else _channels.get(trace_id)
 
 
 def _safe(text: str | None) -> str | None:
@@ -87,7 +95,8 @@ def emit(
     the technology that implements it. `level` is one of info / success /
     warn / deny / error.
     """
-    channel = _channel_for_current_trace()
+    trace_id = _current_trace_id()
+    channel = None if trace_id is None else _channels.get(trace_id)
     if channel is None:
         return
     channel.put({
@@ -97,6 +106,7 @@ def emit(
         "title": _safe(title),
         "detail": _safe(detail),
         "level": level,
+        "step": _current_step.get(trace_id),
         "data": data or {},
     })
 
@@ -104,9 +114,12 @@ def emit(
 def step(step_id: str, status: str, summary: str | None = None, data: dict[str, Any] | None = None) -> None:
     """Chapter progress for the Story view: `status` is active / done /
     skipped / blocked."""
-    channel = _channel_for_current_trace()
+    trace_id = _current_trace_id()
+    channel = None if trace_id is None else _channels.get(trace_id)
     if channel is None:
         return
+    if status == "active":
+        _current_step[trace_id] = step_id
     channel.put({"kind": "step", "ts": time.time(), "step": step_id, "status": status, "summary": _safe(summary), "data": data or {}})
 
 
@@ -130,6 +143,7 @@ class LiveEventSpanProcessor(SpanProcessor):
         channel = _channels.get(span_context.trace_id)
         if channel is None:
             return
+        current_step = _current_step.get(span_context.trace_id)
 
         attributes = dict(span.attributes or {})
         duration_ms = ((span.end_time or 0) - (span.start_time or 0)) / 1_000_000
@@ -144,7 +158,7 @@ class LiveEventSpanProcessor(SpanProcessor):
             if prompt_tokens is not None or completion_tokens is not None:
                 tokens = f" · {prompt_tokens or 0} prompt + {completion_tokens or 0} completion tokens"
             channel.put({
-                "kind": "log", "ts": time.time(), "layer": "llm",
+                "kind": "log", "ts": time.time(), "layer": "llm", "step": current_step,
                 "title": f"LLM call completed — {model}",
                 "detail": f"{duration_ms:,.0f} ms{tokens}" + (f" · {redacted_count} medical attribute(s) redacted before export" if redacted_count else ""),
                 "level": "info",
@@ -154,7 +168,7 @@ class LiveEventSpanProcessor(SpanProcessor):
 
         if kind == "AGENT":
             channel.put({
-                "kind": "log", "ts": time.time(), "layer": "agent",
+                "kind": "log", "ts": time.time(), "layer": "agent", "step": current_step,
                 "title": f"Agno agent run finished — {span.name}",
                 "detail": f"{duration_ms:,.0f} ms" + (f" · input/output redacted in trace ({redacted_count} attribute(s))" if redacted_count else ""),
                 "level": "info",
@@ -164,7 +178,7 @@ class LiveEventSpanProcessor(SpanProcessor):
 
         if span.name in _EXPLICIT_SPANS or kind is not None:
             channel.put({
-                "kind": "trace", "ts": time.time(), "layer": "trace",
+                "kind": "trace", "ts": time.time(), "layer": "trace", "step": current_step,
                 "title": f"span exported → Phoenix: {span.name}",
                 "detail": f"{duration_ms:,.1f} ms",
                 "level": "info",

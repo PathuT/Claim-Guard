@@ -71,6 +71,10 @@ Use the numbered section bar at the top of the page.
 - Switch the right panel to **Requirements proof**: every requirement is ticked off by
   evidence from this run.
 - Point at the **System flow** boxes that lit up with counts: that's the stack at work.
+- Point at **Agents at work**: the fraud and payout agents each got their own JWT per collection
+  (scope, a TTL of seconds, jti), and every action passed an AGT policy check. The intake, medical and
+  coverage agents needed no token: the workflow handed them their input. "Least privilege isn't a
+  diagram here; you can watch it happen."
 - Point at the **meter**: LLM calls, tokens, time in the model against the whole run, and
   governance decisions. "Measured from the spans, not estimated. That's the cost of a claim."
 
@@ -117,9 +121,15 @@ Use the numbered section bar at the top of the page.
 
 *Demonstrates: Harbor.*
 
-The **Harbor scoreboard** shows S01–S10, each scored on outcome **and** governance
-evidence, run with a custom no-Docker Harbor environment. "Correct isn't enough. The
-verifier also checks the audit trail shows the right rules fired."
+The **Harbor panel** has two tabs:
+- **Scenario suite S01–S10**: each scenario's latest result, scored on outcome **and**
+  governance evidence. Click **Run** on **S07** (scope-escalation attack, no AI calls): it
+  goes queued → running → ✓ in about 15 s, live. Run all 10 before the interview, not
+  during it (about 10 minutes, uses the AI quota).
+- **Every Live Run claim**: the Harbor check of every claim you ran today.
+
+"Correct isn't enough. The verifier also checks the audit trail shows the right rules
+fired, and it runs on every claim, not just the test suite."
 
 ## Likely questions
 
