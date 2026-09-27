@@ -57,7 +57,7 @@ export default function Home() {
         <h1 className="text-2xl font-semibold tracking-tight">ClaimGuard</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
           Agentic AI for health-insurance reimbursement claims — built so that it can be trusted with medical records and money.
-          Four Agno agents run inside one deterministic Agno Workflow; every action they take is checked by Microsoft AGT
+          Four Agno agents run inside one Agno Workflow; every action they take is checked by Microsoft AGT
           policy in code, every data access needs a short-lived single-scope JWT, every decision is in a hash-chained audit
           log and one Phoenix trace, and Harbor re-runs ten scenarios, attacks included, as automated evaluations.
         </p>
@@ -74,7 +74,7 @@ export default function Home() {
           ))}
         </ol>
         <p className="mt-3 text-xs text-muted-foreground">
-          Blue = Agno agent (LLM) · green = deterministic code · orange = guardrail (code) · amber = money or a human decision. Every data access and
+          Blue = Agno agent (LLM) · green = policy-as-code (exact maths and routing) · orange = guardrail (code) · amber = money or a human decision. Every data access and
           state change on the way passes governance → token service → data gateway.
         </p>
       </section>

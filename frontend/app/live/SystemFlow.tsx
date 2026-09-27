@@ -17,7 +17,7 @@ const MAIN_PATH: Node[] = [
   { id: "console", name: "Console", tech: "Next.js · TypeScript", role: "Upload, live run, officer & compliance views", layers: ["console"] },
   { id: "api", name: "Agno AgentOS", tech: "FastAPI · pypdf", role: "Receives the claim, extracts PDF text, streams events", layers: ["api", "document"] },
   { id: "agents", name: "Agno Workflow + 4 agents", tech: "Agno · Groq LLM", role: "Intake → medical → coverage → fraud, then the payout branch", layers: ["agent", "llm"] },
-  { id: "rules", name: "Deterministic rules", tech: "Python", role: "Settlement maths, tiers T0–T3", layers: ["rules"] },
+  { id: "rules", name: "Settlement & risk engine", tech: "Policy-as-code", role: "Exact payable amount with a clause per deduction; risk tier T0–T3", layers: ["rules"] },
   { id: "governance", name: "Governance adapter", tech: "Microsoft AGT", role: "Allow / deny every tool call, state machine", layers: ["governance", "state"] },
   { id: "token", name: "Token service", tech: "Ed25519 · PyJWT EdDSA", role: "Verifies agent identity, mints ≤300 s scoped JWT", layers: ["identity", "token"] },
   { id: "gateway", name: "Data gateway", tech: "FastAPI · SQLAlchemy", role: "Validates token, row binding, field allowlist", layers: ["gateway", "payment"] },

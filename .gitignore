@@ -45,6 +45,10 @@ flight_recorder.db-wal
 backend/flight_recorder.db
 backend/flight_recorder.db-shm
 backend/flight_recorder.db-wal
+flight_recorder.db.lock
+backend/flight_recorder.db.lock
+# Archived audit logs (kept locally for reference, never committed).
+backend/flight_recorder.archived-*.db
 
 # Harbor's own per-run job output (evals/harbor/jobs/<timestamp>/ — logs,
 # trial artifacts) — created fresh by every `harbor run`/`make eval`, not

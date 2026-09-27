@@ -75,7 +75,7 @@ export default function CompliancePage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <Panel title="Denials by rule" subtitle="Deterministic rules that refused an action — the attacks and mistakes that didn't happen.">
+            <Panel title="Denials by rule" subtitle="Policy rules that refused an action — the attacks and mistakes that didn't happen.">
               {denials.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No denials yet.</p>
               ) : (

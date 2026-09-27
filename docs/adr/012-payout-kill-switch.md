@@ -60,5 +60,6 @@ deciding T3 claims. The pause itself has to be accountable: who did it, when, an
 - The file is per deployment and lives next to `flight_recorder.db`. A multi-host
   deployment would need to move it to a shared store and keep the same fail-closed
   read semantics.
-- Tests must point `GOVERNANCE_CONTROLS_PATH` at a temporary file. The existing
-  governance tests read the default path; they pass only while the real switch is off.
+- Tests must never read the real switch. `tests/conftest.py` points
+  `GOVERNANCE_CONTROLS_PATH` at a fresh temporary file for every test, so the suite
+  passes whatever state compliance has set.

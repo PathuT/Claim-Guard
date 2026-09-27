@@ -39,7 +39,7 @@ export default function PipelinePage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Agent pipeline — Agno Workflow &ldquo;claim-assessment&rdquo;</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Every claim runs through one deterministic Agno Workflow: four Agno agents (intake, medical reviewer, coverage,
+          Every claim runs through one Agno Workflow: four Agno agents (intake, medical reviewer, coverage,
           fraud) plus settlement, tiering and payout in code, with a Condition deciding auto-pay (T2) or a human officer
           (T3). Each step passes forward a typed result — never raw medical text. This view shows each step&apos;s stored
           output for one claim, and which steps made governed calls recorded in the audit log.

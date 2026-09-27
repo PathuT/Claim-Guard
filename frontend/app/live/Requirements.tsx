@@ -150,11 +150,11 @@ const REQUIREMENTS: Requirement[] = [
   },
   {
     id: "F1",
-    title: "Settlement is deterministic; every deduction cites a clause",
+    title: "Settlement is exact; every deduction cites a clause",
     check: (lines) => {
       const deductions = has(lines, (l) => /Deduction −/.test(l.title));
       const payable = has(lines, (l) => /^Payable /.test(l.title));
-      return payable.length ? proven(`${deductions.length} deduction(s), each with its clause_id; maths in plain Python`) : pending("waiting for settlement");
+      return payable.length ? proven(`${deductions.length} deduction(s), each with its clause_id; maths by the settlement engine`) : pending("waiting for settlement");
     },
   },
   {

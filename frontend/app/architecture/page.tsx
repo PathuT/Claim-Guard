@@ -66,7 +66,7 @@ export default function ArchitecturePage() {
           <Legend n="5" text="Only the gateway holds database credentials." />
           <Legend n="6" text="Every allow / deny is appended to the hash-chained audit log." />
           <Legend n="7" text="Every hop emits a redacted span — one Phoenix trace per claim." />
-          <Legend n="—" text="Green boxes are deterministic code: money maths, sequencing, payout." />
+          <Legend n="—" text="Green boxes are policy-as-code: money maths, sequencing and payout are exact and auditable." />
         </ol>
       </Section>
 
@@ -150,14 +150,14 @@ function Problem() {
 const BRIEF = [
   {
     given: "Agentic AI with Agno",
-    built: "Four Agno Agents with Pydantic output contracts (intake, medical reviewer, coverage, fraud), orchestrated by an Agno Workflow — deterministic Steps plus a Condition for the T2 / T3 money branch — and served by Agno AgentOS. Model-agnostic: Groq, Gemini or Claude by config.",
+    built: "Four Agno Agents with Pydantic output contracts (intake, medical reviewer, coverage, fraud), orchestrated by an Agno Workflow — Steps plus a Condition for the T2 / T3 money branch — and served by Agno AgentOS. Model-agnostic: Groq, Gemini or Claude by config.",
     beyond: [
       "Workflow, not Team: every Team mode has an LLM leader choosing the order — an extra LLM call per hop, and sequencing a prompt injection could influence",
       "Fail-closed steps: Agno keeps running after a failed step by default; ours stop the workflow",
       "AgentOS wraps the existing API — /agents and /workflows added, nothing removed",
       "Settlement maths in code: every deduction cites its policy clause",
       "Document text passed as delimited UNTRUSTED data, never in system prompts",
-      "Deterministic guardrails around the LLM: a hidden-instruction scan before intake (a flagged claim is forced to T3 — never auto-paid), and every ₹ amount in the customer explanation checked against the settlement (an invented figure means the text is replaced)",
+      "Guardrails around the LLM, enforced in code: a hidden-instruction scan before intake (a flagged claim is forced to T3 — never auto-paid), and every ₹ amount in the customer explanation checked against the settlement (an invented figure means the text is replaced)",
       "Rate-limit resilience: provider retries + exponential backoff; Agno telemetry switched off",
     ],
     evidence: "backend/agents/",
@@ -531,7 +531,7 @@ function SecurityModel() {
       </div>
 
       <div className="mt-6">
-        <p className="mb-2 text-sm font-semibold text-card-foreground">Guardrails around the model — deterministic code, not prompts</p>
+        <p className="mb-2 text-sm font-semibold text-card-foreground">Guardrails around the model — enforced in code, not prompts</p>
         <div className="grid gap-3 md:grid-cols-2">
           <Callout
             title="Hidden-instruction scan (before intake)"
@@ -561,7 +561,7 @@ const DECISIONS = [
   { adr: "008", title: "Human in the loop by tiers", chose: "T0–T3; auto-pay only ≤ ₹50,000 with no flags; rejections always human — enforced by PAY-003/004 and STATE-001.", over: "Full autonomy (accountability risk), human review of everything (removes the benefit)." },
   { adr: "009", title: "Next.js only, no NestJS", chose: "Next.js console calling the Python APIs directly.", over: "NestJS BFF (second runtime, extra trust boundary, no gain), Streamlit (weak multi-role UX)." },
   { adr: "010", title: "Identity → trust → token chain", chose: "Tokens only for a verified AGT identity; sensitive scopes need a minimum trust score, per request.", over: "JWTs keyed on agent name (no cryptographic proof), global trust scores (one attacked claim could lock an agent out everywhere)." },
-  { adr: "011", title: "Deterministic guardrails around the model", chose: "Two plain-code Workflow steps: a hidden-instruction scan that forces T3 (never auto-pay), and a check that every ₹ amount in the explanation exists in the settlement.", over: "Rejecting flagged claims (breaks STATE-001, hurts honest claimants), stripping the text (hides evidence), an LLM judge (probabilistic, attackable, costs tokens)." },
+  { adr: "011", title: "Guardrails around the model, enforced in code", chose: "Two plain-code Workflow steps: a hidden-instruction scan that forces T3 (never auto-pay), and a check that every ₹ amount in the explanation exists in the settlement.", over: "Rejecting flagged claims (breaks STATE-001, hurts honest claimants), stripping the text (hides evidence), an LLM judge (probabilistic, attackable, costs tokens)." },
   { adr: "012", title: "Payout kill switch (GOV-004)", chose: "A governed, audited compliance toggle, re-read on every payout check, that freezes automated payouts only. Fails closed on a damaged state.", over: "An env flag (restart, no audit), an in-memory flag (not shared across processes), freezing officer payouts too (blocks the human path during an incident)." },
 ];
 
@@ -592,7 +592,7 @@ function Decisions() {
 }
 
 const LEARNED = [
-  { fw: "Agno Teams", finding: "Every Team mode (coordinate / route / broadcast / tasks) has an LLM leader deciding delegation — confirmed by reading agno/team/mode.py.", action: "Orchestrated with an Agno Workflow instead: deterministic Steps and a Condition, no leader LLM calls." },
+  { fw: "Agno Teams", finding: "Every Team mode (coordinate / route / broadcast / tasks) has an LLM leader deciding delegation — confirmed by reading agno/team/mode.py.", action: "Orchestrated with an Agno Workflow instead: Steps and a Condition, no leader LLM calls." },
   { fw: "Agno Workflows", finding: "When a step raises, Agno logs a warning, runs the remaining steps anyway and reports the run 'completed' — verified in agno 3.0.11.", action: "Every step wrapped to fail closed: the error is recorded and StepOutput(stop=True) halts the run; step retries disabled so a payout is never silently re-attempted." },
   { fw: "Agno AgentOS", finding: "Agents and Workflows default to telemetry=True, and AgentOS can wrap an existing FastAPI app.", action: "Telemetry off everywhere; AgentOS wraps the API with base_app, preserving every existing route. Started without trusted context, the workflow refuses at step 1." },
   { fw: "Microsoft AGT", finding: "v4.1 (public preview) ships no Agno integration.", action: "Built a custom adapter on AGT's framework-agnostic core; used its FlightRecorder audit chain and agentmesh Ed25519 identities as-is instead of reimplementing them." },
