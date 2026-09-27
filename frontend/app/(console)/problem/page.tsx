@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/app/_components/Icon";
+import { LiveOutcomes } from "./LiveOutcomes";
 
 export const metadata: Metadata = {
   title: "The business problem — ClaimGuard",
@@ -66,14 +67,6 @@ const BAR = [
   { need: "Continuously tested against normal claims, fraud and attacks", how: "Harbor replays 10 scenarios and checks each claim after it runs, scoring outcome and governance", href: "/live#evals" },
 ];
 
-const SUCCESS = [
-  { value: "~1 min", label: "for a clean claim, from PDF to payout", note: "measured end to end on the live stack" },
-  { value: "T3 only", label: "reaches a human officer", note: "above ₹50,000, flagged, excluded or a rejection" },
-  { value: "100%", label: "of deductions cite a policy clause", note: "the settlement engine refuses otherwise" },
-  { value: "100%", label: "of agent actions policy-checked and audited", note: "tamper-evident, verifiable any time" },
-  { value: "0", label: "claims rejected by AI alone", note: "enforced in code, not by prompt" },
-  { value: "10 + every claim", label: "evaluated by Harbor", note: "attacks included, outcome and governance" },
-];
 
 export default function ProblemPage() {
   return (
@@ -176,16 +169,8 @@ export default function ProblemPage() {
         </div>
       </Section>
 
-      <Section eyebrow="05 · What good looks like" title="The outcomes ClaimGuard is built for">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {SUCCESS.map((s) => (
-            <div key={s.label} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <p className="text-3xl font-semibold tracking-tight text-card-foreground">{s.value}</p>
-              <p className="mt-1 font-medium text-card-foreground">{s.label}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{s.note}</p>
-            </div>
-          ))}
-        </div>
+      <Section eyebrow="05 · What good looks like" title="What good looks like, measured on this system">
+        <LiveOutcomes />
       </Section>
 
       <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-6 shadow-sm">

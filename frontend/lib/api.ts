@@ -536,6 +536,49 @@ export function listClaimChecks(): Promise<ClaimCheckSummary[]> {
   return request(`${AGENTOS_URL}/evals/claims`);
 }
 
+export interface ScopeGrant {
+  scope: string;
+  ttl_s: number;
+  min_trust: number;
+}
+
+/** Every figure the console states about the system, computed live by
+ * backend/api/system_facts.py (never typed into the UI). */
+export interface SystemFacts {
+  agents: { name: string; model: string | null; provider: string | null; scopes: ScopeGrant[] }[];
+  workflow: { id: string; name: string; steps: string[] } | null;
+  rules: { id: string; must_hold: string; enforced_by: string }[];
+  token_ttl_s: { max: number; min: number };
+  scope_matrix: Record<string, ScopeGrant[]>;
+  data: {
+    policyholders: number;
+    claims: number;
+    hospitals: number;
+    watchlisted_hospitals: number;
+    policy_clauses: number;
+    documents: number;
+    documents_with_hidden_instructions: number;
+  };
+  tests: { total: number; passed: number; failed: number; skipped: number; ran_at: string } | null;
+  harbor: { scenarios: number; scored: number; outcome_pass_rate: number | null; governance_pass_rate: number | null; claim_checks: number; claim_checks_passed: number };
+  outcomes: {
+    claims_run_by_agents: number;
+    seeded_history_claims: number;
+    decided_claims: number;
+    auto_decided: number;
+    to_officer: number;
+    median_processing_s: number | null;
+    processing_samples: number;
+    deductions: number;
+    deductions_with_clause: number;
+  };
+  audit: { entries: number; intact: boolean; allowed: number; refused: number; rejections_with_officer_decision: number; ai_rejections_refused: number };
+}
+
+export function getSystemFacts(): Promise<SystemFacts> {
+  return request(`${AGENTOS_URL}/system/facts`);
+}
+
 /** Latest Harbor eval job (evals/harbor, `npm run eval`), or null if none has run. */
 export function getLatestEvals(): Promise<EvalJob | null> {
   return request(`${AGENTOS_URL}/evals/latest`);

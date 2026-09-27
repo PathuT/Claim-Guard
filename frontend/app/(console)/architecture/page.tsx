@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { RULES } from "@/lib/liveRun";
-import { SequenceDiagram, StateDiagram, SystemDiagram } from "./diagrams";
+import { SequenceDiagram, StateDiagram } from "./diagrams";
+import { LiveDataSentence, LiveHeaderMetrics, LiveMatrix, LiveRules, LiveSystemDiagram } from "./LiveParts";
 
 export const metadata: Metadata = {
   title: "Architecture — ClaimGuard",
@@ -36,12 +36,7 @@ export default function ArchitecturePage() {
           checked by policy in code, every data access needs a signed, short-lived, single-purpose credential, every decision is
           in a tamper-evident audit log and one end-to-end trace, and the whole thing is continuously evaluated — including attacks.
         </p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric value="4 + 1" label="Agno agents + governed payout, in one Agno Workflow" />
-          <Metric value={String(RULES.length)} label="policy rules enforced in code (AGT + token service), incl. a payout kill switch" />
-          <Metric value="≤ 300 s" label="lifetime of any data credential; 60 s for money" />
-          <Metric value="140 + 10" label="backend tests (no agents needed) + Harbor end-to-end scenarios" />
-        </div>
+        <LiveHeaderMetrics />
       </header>
 
       <nav className="sticky top-16 z-10 -my-4 flex flex-wrap gap-1 rounded-xl border border-border bg-card shadow-sm/95 p-1.5 backdrop-blur">
@@ -57,7 +52,7 @@ export default function ArchitecturePage() {
       <BriefVsBuilt />
       <Added />
       <Section id="architecture" n={4} title="System architecture" lead="Five trust zones, left to right: from untrusted input to restricted data. A request can only move through them in order — no governance approval, no credential; no credential, no data.">
-        <SystemDiagram />
+        <LiveSystemDiagram />
         <ol className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
           <Legend n="1" text="Console calls AgentOS; the supervisor runs the agents in a fixed order." />
           <Legend n="2" text="Every agent tool call is checked by the AGT adapter first." />
@@ -144,8 +139,7 @@ function Problem() {
         <Link href="/problem" className="font-medium text-chart-1 underline">
           The full business case
         </Link>
-        . All data is synthetic: 60 policies, ~400 historical claims, 25 hospitals
-        (3 watchlisted), plan terms embedded with pgvector, and generated PDFs — 5 of them poisoned with invisible prompt-injection text.
+        . <LiveDataSentence />
       </div>
     </Section>
   );
@@ -231,7 +225,7 @@ const BRIEF = [
     given: "Compliance & governance tested in the product",
     built: "12 non-negotiable invariants, each with positive and negative tests; DPDP / IRDAI mapping to controls; generated compliance report.",
     beyond: [
-      "140 backend tests with no agents involved: rules, tokens, gateway, redaction, guardrails, kill switch, audit chain",
+      "A backend test suite with no agents involved: rules, tokens, gateway, redaction, guardrails, kill switch, audit chain, settlement (live count in the header)",
       "No AI-only rejection: only an officer decision record can reject",
       "Human-in-the-loop tiers T0–T3 enforced by policy, not prompts",
     ],
@@ -465,69 +459,14 @@ function Tier({ t, title, text, warn }: { t: string; title: string; text: string
   );
 }
 
-const MATRIX_COLS = ["policyholders", "bank_details", "policy_terms", "claims", "claim_documents", "medical_records", "hospitals", "payments"];
-const MATRIX: { agent: string; cells: Record<string, string> }[] = [
-  { agent: "supervisor", cells: {} },
-  { agent: "intake", cells: { claims: "write", claim_documents: "read", medical_records: "write" } },
-  { agent: "medical_reviewer", cells: { claims: "read", medical_records: "read" } },
-  { agent: "coverage", cells: { policyholders: "read_limited", policy_terms: "read", claims: "read" } },
-  { agent: "fraud", cells: { claims: "read_pseudonymised", hospitals: "read" } },
-  { agent: "payout", cells: { bank_details: "read", claims: "read", payments: "write" } },
-];
-
 function SecurityModel() {
   return (
     <Section id="security" n={7} title="Security model" lead="docs/security-matrix.md is the single source of truth: the token service, gateway and AGT rules are all derived from it. Anything not listed is denied.">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[52rem] text-left text-xs">
-          <thead>
-            <tr className="text-muted-foreground">
-              <th className="border-b border-border py-2 pr-3 font-medium">Agent \ collection</th>
-              {MATRIX_COLS.map((c) => (
-                <th key={c} className="border-b border-border py-2 pr-3 font-mono font-medium">
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {MATRIX.map((row) => (
-              <tr key={row.agent}>
-                <td className="border-b border-border py-2 pr-3 font-mono font-semibold text-card-foreground">{row.agent}</td>
-                {MATRIX_COLS.map((c) => {
-                  const v = row.cells[c];
-                  const sensitive = v && (c === "medical_records" || c === "bank_details" || c === "payments");
-                  return (
-                    <td key={c} className="border-b border-border py-2 pr-3">
-                      {v ? (
-                        <span className={`rounded px-1.5 py-0.5 font-mono ${sensitive ? "bg-destructive/10 text-destructive" : "bg-chart-3/10 text-chart-3"}`}>{v}</span>
-                      ) : (
-                        <span className="text-muted-foreground/60">—</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Supervisor holds no data access at all. Red cells are the most sensitive scopes: shortest token lifetimes (medical 120 s, bank and payments 60 s) and the
-        highest trust thresholds (700–800).
-      </p>
+      <LiveMatrix />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[3fr_2fr]">
         <div>
-          <p className="mb-2 text-sm font-semibold text-card-foreground">{RULES.length} policy rules enforced in code</p>
-          <div className="grid gap-1.5 sm:grid-cols-2">
-            {RULES.map(([id, text]) => (
-              <div key={id} className="flex gap-2 rounded-md bg-secondary px-3 py-1.5 text-xs">
-                <span className="w-20 shrink-0 font-mono font-semibold text-chart-2">{id}</span>
-                <span className="text-muted-foreground">{text}</span>
-              </div>
-            ))}
-          </div>
+          <LiveRules />
         </div>
         <div>
           <p className="mb-2 text-sm font-semibold text-card-foreground">Data gateway: 7 checks on every call</p>

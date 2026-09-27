@@ -49,6 +49,8 @@ dev = [
 package = false
 
 [tool.pytest.ini_options]
+# Every run leaves a JUnit report; GET /system/facts shows its real counts.
+addopts = "--junitxml=.reports/pytest.xml"
 # rootdir is backend/, so `from auth import ...` / `from data_gateway import ...`
 # resolve the same way they do for `uv run python -m <package>` elsewhere in
 # this repo (see agents/hello_agent.py's docstring for the same import-mode note).

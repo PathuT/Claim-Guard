@@ -42,6 +42,7 @@ from agents.supervisor import run_claim_flow
 from api.claim_context import remaining_sum_insured as compute_remaining_sum_insured
 from api.claim_evaluation import router as claim_evaluation_router
 from api.harbor_suite import router as harbor_suite_router
+from api.system_facts import router as system_facts_router
 from api.claim_intake import router as claim_intake_router
 from api.claim_intake import scan_injection_markers
 from api.governance_controls import router as governance_controls_router
@@ -101,6 +102,8 @@ app.include_router(story_support_router)
 app.include_router(claim_evaluation_router)
 # Harbor from the console: S01-S10 scoreboard, run from the page, claim-check history.
 app.include_router(harbor_suite_router)
+# Every figure the console states about the system, computed live (api/system_facts.py).
+app.include_router(system_facts_router)
 
 
 class SubmitClaimRequest(BaseModel):
@@ -153,6 +156,7 @@ def assess_claim(claim_id: str, db: Session) -> SubmitClaimResponse:
     /claims/{claim_id}/live below — identical behaviour; the live variant
     only differs in having a registered event channel for its trace."""
     req = SubmitClaimRequest(claim_id=claim_id)
+    started = time.perf_counter()
     with tracer.start_as_current_span("claim.submit") as span:
         span.set_attribute("claim_id", req.claim_id)
 
@@ -282,6 +286,9 @@ def assess_claim(claim_id: str, db: Session) -> SubmitClaimResponse:
                 "discharge_date": result.intake_result.discharge_date,
                 "length_of_stay_hours": result.intake_result.length_of_stay_hours,
             },
+            # Measured wall-clock time from submission to decision; the
+            # console's "time per claim" figure is the median of these.
+            "processing_ms": round((time.perf_counter() - started) * 1000),
         }
         db.commit()
         emit("database", "Assessment persisted to claims.assessment (JSONB)", "raw diagnosis text deliberately excluded — only structured findings are stored for other roles")

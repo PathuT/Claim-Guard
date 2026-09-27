@@ -73,7 +73,7 @@ function Markers({ id }: { id: string }) {
 
 /** The whole system: five trust zones left→right, from untrusted input to
  * restricted data, with the numbered path a claim takes. */
-export function SystemDiagram() {
+export function SystemDiagram({ modelLabel }: { modelLabel?: string } = {}) {
   const m = "sys-arrow";
   return (
     <div className="overflow-x-auto">
@@ -101,7 +101,7 @@ export function SystemDiagram() {
         />
 
         {/* Agent runtime */}
-        <Box x={400} y={62} w={315} h={48} title="LLM provider (external)" tone="external" dashed lines={["Groq gpt-oss-120b · swappable: Gemini, Claude"]} />
+        <Box x={400} y={62} w={315} h={48} title="LLM provider (external)" tone="external" dashed lines={[modelLabel ?? "model read live from AgentOS…"]} />
         <Box x={400} y={124} w={315} h={48} title="Agno Workflow — claim-assessment" tone="code" lines={["Steps + 2 guardrails + Condition (T2 pay / T3 human)"]} />
         <Box x={400} y={186} w={152} h={62} title="Intake" tone="agent" lines={["Agno · typed output", "docs = untrusted data"]} />
         <Box x={563} y={186} w={152} h={62} title="Medical reviewer" tone="agent" lines={["Agno · ONLY agent that", "sees medical text"]} />

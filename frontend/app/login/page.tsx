@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             Health claims decided by AI agents, governed like a bank.
           </h1>
           <p className="mt-4 text-base leading-relaxed text-sidebar-muted">
-            From hospital PDF to payout in about a minute, and every step accounted for: who acted, with which credential, under
+            From hospital PDF to payout in one governed run, and every step accounted for: who acted, with which credential, under
             which rule.
           </p>
           <ul className="mt-8 flex flex-col gap-5">

@@ -57,6 +57,8 @@ evals/harbor/jobs/
 # Per-claim Harbor checks started from the Live Run page (api/claim_evaluation.py):
 # generated one-task datasets and their job output.
 evals/harbor/claim_jobs/
+# Last pytest run's JUnit report (read by GET /system/facts).
+backend/.reports/
 evals/harbor/live_tasks/
 
 # Sample document packs rendered on demand for the Console Story view

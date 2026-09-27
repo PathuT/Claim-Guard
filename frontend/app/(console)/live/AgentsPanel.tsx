@@ -1,5 +1,7 @@
 "use client";
 
+import { useSystemFacts } from "@/app/_components/LiveFacts";
+import type { ScopeGrant } from "@/lib/api";
 import type { LogLine } from "./LiveConsole";
 
 interface StepState {
@@ -14,8 +16,6 @@ interface AgentDef {
   /** Workflow steps this agent does its work in (backend step ids). */
   steps: string[];
   role: string;
-  /** Scopes the security matrix allows this agent (docs/security-matrix.md). */
-  scopes: string[];
   /** Shown when the agent needed no data credential in this run. */
   noTokenNote?: string;
   llm: boolean;
@@ -28,7 +28,6 @@ const AGENTS: AgentDef[] = [
     kind: "Agno Workflow",
     steps: ["received", "doc_guardrail", "settlement", "explanation_guardrail", "tier"],
     role: "Runs the steps in a fixed order, applies the guardrails and the settlement engine, and routes the claim. Every state change is governed.",
-    scopes: [],
     noTokenNote: "Holds no data access at all: it only hands each agent its input.",
     llm: false,
   },
@@ -38,7 +37,6 @@ const AGENTS: AgentDef[] = [
     kind: "Agno Agent · LLM",
     steps: ["intake"],
     role: "Reads the bill and discharge summary and extracts line items, dates and totals as typed output.",
-    scopes: ["claim_documents:read", "claims:write", "medical_records:write"],
     noTokenNote: "The workflow hands it the documents as delimited untrusted text, so it requests no token.",
     llm: true,
   },
@@ -48,7 +46,6 @@ const AGENTS: AgentDef[] = [
     kind: "Agno Agent · LLM",
     steps: ["medical"],
     role: "The only agent that sees medical text. Returns an ICD-10 coded finding that every other step uses instead.",
-    scopes: ["medical_records:read", "claims:read"],
     noTokenNote: "Receives the discharge text from the workflow; nobody else ever gets it.",
     llm: true,
   },
@@ -58,7 +55,6 @@ const AGENTS: AgentDef[] = [
     kind: "Agno Agent · LLM",
     steps: ["coverage"],
     role: "Explains the settlement in plain language. It cannot change a number, and the guardrail checks every ₹ it writes.",
-    scopes: ["policy_terms:read", "claims:read", "policyholders:read_limited"],
     noTokenNote: "Given the settlement by the workflow; needs no data token.",
     llm: true,
   },
@@ -68,7 +64,6 @@ const AGENTS: AgentDef[] = [
     kind: "Agno Agent · LLM",
     steps: ["fraud"],
     role: "Screens claim history and the hospital watchlist, on pseudonymised data only.",
-    scopes: ["claims:read_pseudonymised", "hospitals:read"],
     llm: true,
   },
   {
@@ -77,7 +72,6 @@ const AGENTS: AgentDef[] = [
     kind: "Governed tool · own identity",
     steps: ["payout"],
     role: "Moves money only for T2 claims: reads the registered account and records the payment, each with its own 60 s token.",
-    scopes: ["bank_details:read", "payments:write"],
     noTokenNote: "Not called: the claim went to a human officer, so no money token was ever minted.",
     llm: false,
   },
@@ -149,6 +143,8 @@ const STATUS_STYLE: Record<string, string> = {
  * credential it was issued (scope, lifetime, jti). All figures come from
  * the backend's live events for this run, never from a script. */
 export function AgentsPanel({ lines, steps, running, complete }: { lines: LogLine[]; steps: Record<string, StepState>; running: boolean; complete: boolean }) {
+  // Each agent's allowed scopes, read live from the token service's matrix.
+  const matrix = useSystemFacts().data?.scope_matrix;
   return (
     <section className="rounded-xl border border-border bg-card shadow-sm p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -167,14 +163,14 @@ export function AgentsPanel({ lines, steps, running, complete }: { lines: LogLin
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {AGENTS.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} stats={statsFor(agent, lines, steps, complete)} />
+          <AgentCard key={agent.id} agent={agent} stats={statsFor(agent, lines, steps, complete)} scopes={matrix?.[agent.id]} />
         ))}
       </div>
     </section>
   );
 }
 
-function AgentCard({ agent, stats }: { agent: AgentDef; stats: AgentStats }) {
+function AgentCard({ agent, stats, scopes }: { agent: AgentDef; stats: AgentStats; scopes?: ScopeGrant[] }) {
   const finished = ["done", "skipped", "blocked", "not used"].includes(stats.status);
   return (
     <div className={`flex flex-col rounded-md border p-3 transition-colors ${stats.status === "working" ? "border-chart-1/60 bg-chart-1/5" : "border-border"}`}>
@@ -223,11 +219,11 @@ function AgentCard({ agent, stats }: { agent: AgentDef; stats: AgentStats }) {
         </p>
       )}
 
-      {agent.scopes.length > 0 && (
+      {scopes && scopes.length > 0 && (
         <div className="mt-auto flex flex-wrap gap-1 pt-2">
-          {agent.scopes.map((scope) => (
-            <span key={scope} className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground" title="Allowed by the security matrix">
-              {scope}
+          {scopes.map((g) => (
+            <span key={g.scope} className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground" title={`Allowed by the token service's matrix · minimum trust ${g.min_trust}`}>
+              {g.scope} · {g.ttl_s}s
             </span>
           ))}
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { ranAt, useSystemFacts } from "@/app/_components/LiveFacts";
 import { formatInr } from "@/lib/format";
 import type { LogLine } from "./LiveConsole";
 
@@ -80,7 +81,8 @@ const REQUIREMENTS: Requirement[] = [
   {
     id: "R5",
     title: "Delegation never widens access",
-    check: () => ({ status: "tests", proof: "not exercised by a single claim — proven in make test-security (token service delegation tests)" }),
+    // Not exercised by a single claim; evidenced by the last real test run (GET /system/facts).
+    check: () => ({ status: "tests", proof: "not exercised by a single claim; covered by the token service's delegation tests" }),
   },
   {
     id: "R6",
@@ -206,7 +208,15 @@ const REQUIREMENTS: Requirement[] = [
 ];
 
 export function Requirements({ lines, steps = {} }: { lines: LogLine[]; steps?: StepEvidence }) {
-  const results = REQUIREMENTS.map((r) => ({ ...r, evidence: r.check(lines, steps) }));
+  const tests = useSystemFacts().data?.tests;
+  const results = REQUIREMENTS.map((r) => {
+    const evidence = r.check(lines, steps);
+    if (evidence.status === "tests" && tests) {
+      const ok = tests.failed === 0;
+      evidence.proof = `${evidence.proof}: last backend run ${tests.passed}/${tests.total} passed (${ranAt(tests.ran_at)})${ok ? "" : `, ${tests.failed} FAILED`}`;
+    }
+    return { ...r, evidence };
+  });
   const provenCount = results.filter((r) => r.evidence.status === "proven").length;
   const testsCount = results.filter((r) => r.evidence.status === "tests").length;
 
