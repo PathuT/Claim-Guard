@@ -1,7 +1,11 @@
-# Officer chatbot — plan (future milestone, not yet built)
+# Officer chatbot — plan
 
-Status: **plan only, nothing implemented**. Written up so the idea can be picked up
-later without re-deriving the scoping decisions already made in conversation.
+Status: **implemented** (ADR-014). Decisions taken: a panel on the Officer page,
+single claim only, same Groq/Gemini config as the agents. Code:
+`backend/agents/officer_assistant.py`, `POST /claims/{id}/assistant` in
+`backend/api/officer.py`, `frontend/app/(console)/officer/ClaimAssistant.tsx`, tests in
+`backend/tests/test_officer_assistant.py`. The sections below are the original plan,
+kept for the reasoning.
 
 ## 1. What this is
 

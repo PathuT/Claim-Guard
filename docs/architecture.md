@@ -63,6 +63,7 @@ flowchart TB
 | Next.js console | Claim submission, officer queue, compliance views | Next.js (TS) | Untrusted client |
 | AgentOS API | Hosts agents, exposes claim + decision endpoints | Agno AgentOS (FastAPI) | Semi-trusted |
 | Agents (6) | Extraction, review, assessment, screening, payout requests | Agno agents + team | **Untrusted reasoning** |
+| Officer claim assistant | Read-only Q&A about one open claim (ADR-014) | Agno agent, no tools, on the officer API | Untrusted reasoning, no data access of its own |
 | AGT adapter | Intercepts every tool call, evaluates policy, writes audit | AGT Python SDK + custom Agno glue | Trusted |
 | Token service | Verifies AGT agent identity + trust score, mints short-lived scoped JWTs, publishes JWKS, revokes by `jti` | FastAPI + PyJWT (EdDSA) | Trusted, holds private key |
 | Data gateway | Validates JWT, enforces field allowlists and row binding, queries DB | FastAPI + SQL | Trusted, public key only |
@@ -84,6 +85,7 @@ never lives in the same process as agent code (see ADR-003).
 | User → API | Form fields, uploaded documents | Session auth; `policy_number` from session; files stored as untrusted |
 | Documents → agents | Extracted text | Wrapped as data (delimited, labelled untrusted); never merged into system prompts |
 | Documents → NeMo (NVIDIA NIM) | Extracted text, when `NEMO_GUARDRAILS_ENABLED=true` | Advisory only (ADR-013): can only add a T3 flag, never clear one, never touches governance/tokens/gateway; off by default; fails open |
+| Claim data → officer assistant | Allowlisted settlement, flags, structured finding, bill figures (ADR-014) | Copied by field name; never bank details, officer notes, `stated_illness` or document text; every ₹ amount in the answer checked against the claim |
 | Agent → tool | Tool name + arguments | AGT policy check, per-agent tool allowlist |
 | Tool → data | Query | JWT scope, field allowlist, row binding to `claim_id` |
 | Agent → agent | Delegation, findings | Scopes cannot widen; findings are schema-validated JSON |
@@ -298,6 +300,7 @@ the same person maps to the same pseudonym across claims without being reversibl
 | `gateway.access` | Data gateway | collection, scope, rows, fields, jti |
 | `payout.execute` | Payments mock | amount, claim_id, agt_decision_id |
 | `human.decision` | API | officer_id, decision |
+| `officer.assistant` | Officer API (ADR-014) | claim_id, question_chars, history_messages, model_called, replaced, unexpected_amounts |
 
 `guardrail.documents`'s `nemo_flagged`/`nemo_rationale` attributes are only meaningful
 when `NEMO_GUARDRAILS_ENABLED=true` (ADR-013); the step's other attributes are

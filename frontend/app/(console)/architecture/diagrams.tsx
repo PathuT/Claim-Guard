@@ -109,7 +109,7 @@ export function SystemDiagram({ modelLabel }: { modelLabel?: string } = {}) {
         <Box x={563} y={260} w={152} h={62} title="Fraud" tone="agent" lines={["Agno · pseudonymised", "data + hospital watchlist"]} />
         <Box x={400} y={334} w={152} h={62} title="Settlement & risk engine" tone="code" lines={["policy-as-code, exact", "clause per deduction"]} />
         <Box x={563} y={334} w={152} h={62} title="Payout" tone="code" lines={["Condition branch · one", "governed money call"]} />
-        <Box x={400} y={416} w={315} h={48} title="Officer decision API (FastAPI)" lines={["human approve / partial / reject → governed payout"]} />
+        <Box x={400} y={416} w={315} h={48} title="Officer decision API (FastAPI)" lines={["approve / partial / reject → governed payout · read-only claim assistant"]} />
         <Box x={400} y={478} w={315} h={62} title="Claim intake API (FastAPI)" lines={["real PDF upload · pypdf text extraction", "sha256 fingerprints · live SSE event stream"]} />
 
         {/* Control plane */}

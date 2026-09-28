@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { formatInr, severityStyle } from "@/lib/format";
 import { BreakGlass } from "./BreakGlass";
+import { ClaimAssistant } from "./ClaimAssistant";
 
 // STATE-002 (governance/rules.py) enforces the exact required step names
 // for an approved/paid transition: "medical_review", "coverage_assessment",
@@ -144,6 +145,8 @@ export function OfficerDetail({ claimId, officerId, onDecided }: { claimId: stri
           </p>
         </div>
       )}
+
+      <ClaimAssistant key={claimId} claimId={claimId} />
 
       <BreakGlass claimId={claimId} officerId={officerId} />
 

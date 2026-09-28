@@ -292,6 +292,15 @@ const ADDED: { name: string; tag: string; risk: string; how: string; see: string
     adr: "ADR-013",
   },
   {
+    name: "Officer claim assistant",
+    tag: "Read-only · no tools, no new access",
+    risk: "An officer deciding a T3 claim has to read every field to answer “why is this with me?”",
+    how: "A chat panel on the open claim answers from the same settlement, flags and structured finding the page already shows. Bank details, the medical reviewer's note and document text are never sent to the model. Every ₹ amount in an answer must be in the settlement, or the answer is replaced. It cannot approve, reject or pay.",
+    see: "Officer → Ask about this claim",
+    href: "/officer",
+    adr: "ADR-014",
+  },
+  {
     name: "Payout kill switch (GOV-004)",
     tag: "AGT rule · governed toggle",
     risk: "During an incident, automated money movement must stop now, with no deploy.",
@@ -516,11 +525,12 @@ const DECISIONS = [
   { adr: "011", title: "Guardrails around the model, enforced in code", chose: "Two plain-code Workflow steps: a hidden-instruction scan that forces T3 (never auto-pay), and a check that every ₹ amount in the explanation exists in the settlement.", over: "Rejecting flagged claims (breaks STATE-001, hurts honest claimants), stripping the text (hides evidence), an LLM judge (probabilistic, attackable, costs tokens)." },
   { adr: "012", title: "Payout kill switch (GOV-004)", chose: "A governed, audited compliance toggle, re-read on every payout check, that freezes automated payouts only. Fails closed on a damaged state.", over: "An env flag (restart, no audit), an in-memory flag (not shared across processes), freezing officer payouts too (blocks the human path during an incident)." },
   { adr: "013", title: "NeMo Guardrails as an advisory second opinion", chose: "NVIDIA NIM content-safety model OR'd into the same injection flag as the marker-list scan — off by default, can only add a T3 flag, never clear one, fails open on any error.", over: "Replacing the marker list with NeMo (reopens ADR-011's own rejected LLM-judge argument), letting NeMo's verdict override the marker list either way (would let its absence reduce caution)." },
+  { adr: "014", title: "Read-only claim assistant for the officer", chose: "A chat panel scoped to the open claim, fed an allowlist of fields the page already shows; no tools, no new scope; every ₹ amount checked against the settlement.", over: "A seventh agent with gateway access (new identity and scopes for a convenience feature), forwarding the whole review response (would send bank details and officer notes to the model), cross-claim questions (deferred)." },
 ];
 
 function Decisions() {
   return (
-    <Section id="decisions" n={8} title="Design decisions (ADRs)" lead="Each choice is recorded with the alternatives considered and why they lost — docs/adr/001–013.">
+    <Section id="decisions" n={8} title="Design decisions (ADRs)" lead="Each choice is recorded with the alternatives considered and why they lost — docs/adr/001–014.">
       <div className="grid gap-3 md:grid-cols-2">
         {DECISIONS.map((d) => (
           <div key={d.adr} className="rounded-md border border-border p-4">

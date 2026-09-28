@@ -32,16 +32,24 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry import trace
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from agents.officer_assistant import (
+    MAX_HISTORY_CHARS,
+    MAX_HISTORY_MESSAGES,
+    MAX_QUESTION_CHARS,
+    answer_question,
+    build_claim_context,
+)
 from agents.payout import PayoutContext, execute_payout
 from api.claim_context import remaining_sum_insured as compute_remaining_sum_insured
 from data_gateway.db import get_session
 from data_gateway.models import BankDetail, Claim, ClaimDocument, Policyholder
 from governance.adapter import GovernanceDenied, ToolCallContext, check_and_audit
 from governance.client import ToolCallDenied, new_req_id
+from observability.live_events import emit
 from observability.terminal_log import quiet_polling_access_logs
 from observability.tracing import setup_tracing
 
@@ -143,6 +151,85 @@ def get_claim_for_review(claim_id: str, db: Session = Depends(_get_db)) -> Offic
         assessment=claim.assessment,
         registered_account_ref=bank_detail.account_number,
         remaining_sum_insured=compute_remaining_sum_insured(db, claim.policy_number, policyholder.sum_insured),
+    )
+
+
+class AssistantMessage(BaseModel):
+    role: Literal["officer", "assistant"]
+    content: str = Field(max_length=MAX_HISTORY_CHARS)
+
+
+class AssistantRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    history: list[AssistantMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
+
+
+class AssistantStep(BaseModel):
+    tool: str
+    decision: Literal["allow", "deny"]
+    rule_id: str | None = None
+
+
+class AssistantResponse(BaseModel):
+    claim_id: str
+    answer: str
+    steps: list[AssistantStep]  # the agent's tool calls, each checked and audited by AGT
+    replaced: bool  # the model's answer quoted an amount not in the claim, so it was replaced
+    unexpected_amounts: list[int]
+
+
+@app.post("/claims/{claim_id}/assistant", response_model=AssistantResponse)
+def ask_claim_assistant(claim_id: str, req: AssistantRequest, db: Session = Depends(_get_db)) -> AssistantResponse:
+    """ADR-014: an agent with read-only tools answers questions about one
+    claim. Its tools read the same data GET /claims/{id}/review returns,
+    minus the fields the model must never see (agents/officer_assistant.py);
+    every tool call goes through the AGT adapter. No writes, no data scope."""
+    if not req.question.strip():
+        raise HTTPException(status_code=422, detail={"reason_code": "ASSISTANT-EMPTY-QUESTION", "message": "ask a question about this claim"})
+
+    claim = db.get(Claim, claim_id)
+    if claim is None:
+        raise HTTPException(status_code=404, detail={"reason_code": "OFFICER-NO-SUCH-CLAIM", "message": f"claim {claim_id!r} does not exist"})
+    policyholder = db.get(Policyholder, claim.policy_number)
+    if policyholder is None:
+        raise HTTPException(status_code=500, detail={"reason_code": "OFFICER-MISSING-POLICY-DATA", "message": f"policy {claim.policy_number!r} has no policyholder row"})
+
+    context = build_claim_context(
+        claim_id=claim.claim_id, status=claim.status, assessment=claim.assessment,
+        remaining_sum_insured=compute_remaining_sum_insured(db, claim.policy_number, policyholder.sum_insured),
+    )
+
+    req_id = new_req_id()
+    with tracer.start_as_current_span("officer.assistant") as span:
+        span.set_attribute("req_id", req_id)
+        span.set_attribute("claim_id", claim_id)
+        span.set_attribute("question_chars", len(req.question))
+        span.set_attribute("history_messages", len(req.history))
+        try:
+            result = answer_question(
+                context, claim_id, req.question.strip(), [m.model_dump() for m in req.history], req_id=req_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - fail closed: no answer rather than a guess
+            span.set_attribute("error", type(exc).__name__)
+            emit("agent", f"Officer assistant could not answer about {claim_id}", f"{type(exc).__name__}: {exc}"[:300], level="error")
+            raise HTTPException(status_code=502, detail={"reason_code": "ASSISTANT-UNAVAILABLE", "message": "The assistant could not answer right now. Try again."}) from None
+        span.set_attribute("model_called", result.model_called)
+        span.set_attribute("tools_called", [s.tool for s in result.steps])
+        span.set_attribute("tools_denied", [s.tool for s in result.steps if s.decision == "deny"])
+        span.set_attribute("replaced", result.replaced)
+        span.set_attribute("unexpected_amounts", result.unexpected_amounts)
+
+    tools_used = ", ".join(s.tool for s in result.steps) or "no tools"
+    if result.replaced:
+        emit("guardrail", f"Officer assistant answer replaced for {claim_id}",
+             f"quoted amount(s) not in the settlement: {result.unexpected_amounts}", level="warn")
+    else:
+        emit("agent", f"Officer assistant answered a question about {claim_id}", f"read-only · tools: {tools_used}", level="success")
+
+    return AssistantResponse(
+        claim_id=claim_id, answer=result.answer,
+        steps=[AssistantStep(tool=s.tool, decision=s.decision, rule_id=s.rule_id) for s in result.steps],
+        replaced=result.replaced, unexpected_amounts=result.unexpected_amounts,
     )
 
 

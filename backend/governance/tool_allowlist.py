@@ -15,6 +15,13 @@ AGENT_TOOLS: dict[str, set[str]] = {
     "coverage": {"search_policy_terms", "read_policy_limited", "read_claim", "submit_assessment"},
     "fraud": {"search_claims_pseudonymised", "read_hospital", "submit_fraud_screen"},
     "payout": {"read_bank_details", "execute_payout"},
+    # ADR-014: the officer's read-only claim assistant. Each tool returns a
+    # slice of the claim view the officer API already assembled for the
+    # page; none touches a data store, holds a scope, or changes anything.
+    "officer_assistant": {
+        "get_claim_overview", "get_settlement", "get_fraud_signals",
+        "get_medical_finding", "get_bill", "get_routing_reasons",
+    },
     # Not an autonomous agent — the human console role itself
     # (security-matrix.md §9: "claims_officer ... open full discharge
     # summary via audited break-glass (reason required)"). Reusing

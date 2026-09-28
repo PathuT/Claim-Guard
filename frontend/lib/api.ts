@@ -282,6 +282,28 @@ export function breakGlassDischargeSummary(claimId: string, officerId: string, r
   });
 }
 
+export interface AssistantMessage {
+  role: "officer" | "assistant";
+  content: string;
+}
+
+export interface AssistantAnswer {
+  claim_id: string;
+  answer: string;
+  replaced: boolean;
+  unexpected_amounts: number[];
+}
+
+/** ADR-014: read-only Q&A about one claim. The backend sends the model only
+ * the settlement, flags and structured finding (never bank details, the
+ * medical reviewer's notes or document text) and checks every ₹ amount. */
+export function askClaimAssistant(claimId: string, question: string, history: AssistantMessage[]): Promise<AssistantAnswer> {
+  return request(`${OFFICER_API_URL}/claims/${encodeURIComponent(claimId)}/assistant`, {
+    method: "POST",
+    body: JSON.stringify({ question, history }),
+  });
+}
+
 export type OfficerDecisionType = "approved" | "approved_partial" | "rejected";
 
 export interface OfficerDecisionRequest {
