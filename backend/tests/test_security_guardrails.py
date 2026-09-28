@@ -37,6 +37,7 @@ from agents.guardrails import (
     scan_documents,
     validate_explanation,
 )
+from agents.nemo_guardrail import nemo_enabled
 from agents.schemas import (
     BillLineItem,
     CoverageAssessment,
@@ -281,14 +282,22 @@ def test_security_document_guardrail_step_contract_and_forces_t3(live_channel):
     step_input = StepInput(input="assess", additional_data={"flow": ctx})
 
     out = supervisor.document_guardrail(step_input)
-    assert out.content == {"flagged": True, "markers": ctx.injection_markers, "doc_types": ["discharge_summary"]}
+    # Marker-list result (scan/markers/doc_types) is always present and
+    # authoritative; nemo_flagged/nemo_rationale only appear when NeMo is
+    # actually enabled (ADR-013) — see the module docstring for why the
+    # step's default-off shape must stay byte-identical to pre-ADR-013.
+    assert out.content["flagged"] is True
+    assert out.content["markers"] == ctx.injection_markers
+    assert out.content["doc_types"] == ["discharge_summary"]
+    assert ("nemo_flagged" in out.content) == nemo_enabled()
     assert ctx.injection_suspected
 
     events = _drain(live_channel)
     steps = [(e["step"], e["status"]) for e in events if e["kind"] == "step"]
     assert steps == [("doc_guardrail", "active"), ("doc_guardrail", "done")]
     done = next(e for e in events if e["kind"] == "step" and e["status"] == "done")
-    assert set(done["data"]) == {"flagged", "markers", "doc_types"} and done["data"]["flagged"] is True
+    expected_keys = {"flagged", "markers", "doc_types"} | ({"nemo_flagged", "nemo_rationale"} if nemo_enabled() else set())
+    assert set(done["data"]) == expected_keys and done["data"]["flagged"] is True
     guardrail_logs = [e for e in events if e["kind"] == "log" and e["layer"] == "guardrail"]
     assert [e["level"] for e in guardrail_logs] == ["warn"]
 
@@ -311,8 +320,16 @@ def test_security_document_guardrail_step_contract_and_forces_t3(live_channel):
 def test_document_guardrail_clean_emits_success(live_channel):
     ctx = _flow_ctx(CLEAN_DISCHARGE)
     out = supervisor.document_guardrail(StepInput(input="assess", additional_data={"flow": ctx}))
-    assert out.content == {"flagged": False, "markers": [], "doc_types": []}
-    assert not ctx.injection_suspected
+    assert out.content["flagged"] is False
+    assert out.content["markers"] == []
+    assert out.content["doc_types"] == []
+    assert ("nemo_flagged" in out.content) == nemo_enabled()
+    # injection_suspected can still be True here if NeMo is enabled and
+    # flags this clean-per-marker-list text on its own (OR semantics,
+    # ADR-013) — the marker-list-only assertions above are what this test
+    # is actually about.
+    if not nemo_enabled():
+        assert not ctx.injection_suspected
     logs = [e for e in _drain(live_channel) if e["kind"] == "log" and e["layer"] == "guardrail"]
     assert [e["level"] for e in logs] == ["success"]
 
