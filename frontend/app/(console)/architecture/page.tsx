@@ -284,6 +284,14 @@ const ADDED: { name: string; tag: string; risk: string; how: string; see: string
     adr: "ADR-011",
   },
   {
+    name: "NeMo second opinion (NVIDIA NIM)",
+    tag: "Advisory only · off by default",
+    risk: "The marker-list scan is a fixed phrase list — a novel injection phrasing can pass it silently.",
+    how: "When NEMO_GUARDRAILS_ENABLED=true, each document is also sent to an NVIDIA NIM model as a second, independent opinion. It can raise the same T3 flag the marker list would, but can never clear one — never authorises anything, never touches governance, tokens or the gateway. Fails open: if the NIM call errors, the claim proceeds on the marker-list result alone. The benchmark (evals/guardrail_bench) found the default content-safety model adds real false positives with no recall gain over the marker list on this corpus — off by default until a model trained for injection detection specifically is benchmarked.",
+    see: "evals/guardrail_bench/report.md",
+    adr: "ADR-013",
+  },
+  {
     name: "Payout kill switch (GOV-004)",
     tag: "AGT rule · governed toggle",
     risk: "During an incident, automated money movement must stop now, with no deploy.",
@@ -507,11 +515,12 @@ const DECISIONS = [
   { adr: "010", title: "Identity → trust → token chain", chose: "Tokens only for a verified AGT identity; sensitive scopes need a minimum trust score, per request.", over: "JWTs keyed on agent name (no cryptographic proof), global trust scores (one attacked claim could lock an agent out everywhere)." },
   { adr: "011", title: "Guardrails around the model, enforced in code", chose: "Two plain-code Workflow steps: a hidden-instruction scan that forces T3 (never auto-pay), and a check that every ₹ amount in the explanation exists in the settlement.", over: "Rejecting flagged claims (breaks STATE-001, hurts honest claimants), stripping the text (hides evidence), an LLM judge (probabilistic, attackable, costs tokens)." },
   { adr: "012", title: "Payout kill switch (GOV-004)", chose: "A governed, audited compliance toggle, re-read on every payout check, that freezes automated payouts only. Fails closed on a damaged state.", over: "An env flag (restart, no audit), an in-memory flag (not shared across processes), freezing officer payouts too (blocks the human path during an incident)." },
+  { adr: "013", title: "NeMo Guardrails as an advisory second opinion", chose: "NVIDIA NIM content-safety model OR'd into the same injection flag as the marker-list scan — off by default, can only add a T3 flag, never clear one, fails open on any error.", over: "Replacing the marker list with NeMo (reopens ADR-011's own rejected LLM-judge argument), letting NeMo's verdict override the marker list either way (would let its absence reduce caution)." },
 ];
 
 function Decisions() {
   return (
-    <Section id="decisions" n={8} title="Design decisions (ADRs)" lead="Each choice is recorded with the alternatives considered and why they lost — docs/adr/001–012.">
+    <Section id="decisions" n={8} title="Design decisions (ADRs)" lead="Each choice is recorded with the alternatives considered and why they lost — docs/adr/001–013.">
       <div className="grid gap-3 md:grid-cols-2">
         {DECISIONS.map((d) => (
           <div key={d.adr} className="rounded-md border border-border p-4">

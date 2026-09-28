@@ -74,6 +74,8 @@ from .guardrails import (
 )
 from .intake import build_intake_agent, run_intake
 from .medical_reviewer import build_medical_reviewer_agent, run_medical_review
+from .nemo_guardrail import check_injection as nemo_check_injection
+from .nemo_guardrail import nemo_enabled
 from .payout import PayoutContext, execute_payout
 from .schemas import CoverageAssessment, FraudScreen, IntakeResult, MedicalFinding
 from .settlement import PolicyContext, compute_settlement
@@ -116,6 +118,10 @@ class ClaimFlowContext:
     # still assessed, but it can never be auto-paid.
     injection_suspected: bool = False
     injection_markers: list[str] = field(default_factory=list)
+    # ADR-013: NeMo Guardrails' advisory opinion, OR'd into injection_suspected
+    # above but tracked separately so the audit trail keeps "why" distinct.
+    nemo_flagged: bool = False
+    nemo_rationale: str = ""
     intake_result: IntakeResult | None = None
     finding: MedicalFinding | None = None
     assessment: CoverageAssessment | None = None
@@ -205,7 +211,16 @@ def document_guardrail(step_input: StepInput) -> StepOutput:
     agent reads them. A hit does not stop the run: intake still reads the
     documents as delimited untrusted data (invariant 8). It is recorded on
     the context, and from then on the claim cannot be auto-paid (the flag
-    is added after settlement, and the tier is forced to T3)."""
+    is added after settlement, and the tier is forced to T3).
+
+    ADR-013: when NEMO_GUARDRAILS_ENABLED=true, NeMo Guardrails also scans
+    each document as a second, advisory opinion. It is OR'd into
+    injection_suspected — it can raise the flag the marker list missed, but
+    it can never clear a flag the marker list raised. The marker-list
+    result (scan/injection_markers) remains the sole record of "why" for
+    tiering; NeMo's own verdict is recorded separately (nemo_flagged/
+    nemo_rationale) so both are visible in the audit trail without
+    conflating a deterministic check with a probabilistic one."""
     ctx = _ctx(step_input)
     step("doc_guardrail", "active")
     scanned = {"final_bill": ctx.bill_text, "discharge_summary": ctx.discharge_summary_text}
@@ -216,21 +231,44 @@ def document_guardrail(step_input: StepInput) -> StepOutput:
         span.set_attribute("flagged", scan.flagged)
         span.set_attribute("markers", scan.markers)
         span.set_attribute("doc_types", scan.doc_types)
-    ctx.injection_suspected = scan.flagged
+
+        nemo_flagged = False
+        nemo_rationale = "NeMo Guardrails disabled"
+        if nemo_enabled():
+            nemo_hits = [(doc_type, nemo_check_injection(text)) for doc_type, text in scanned.items() if text]
+            nemo_flagged = any(result.flagged for _, result in nemo_hits)
+            nemo_rationale = "; ".join(f"{doc_type}: {result.rationale}" for doc_type, result in nemo_hits)
+        span.set_attribute("nemo_flagged", nemo_flagged)
+        span.set_attribute("nemo_rationale", nemo_rationale)
+
+    ctx.injection_suspected = scan.flagged or nemo_flagged
     ctx.injection_markers = scan.markers
+    ctx.nemo_flagged = nemo_flagged
+    ctx.nemo_rationale = nemo_rationale
+    # Original shape (flagged/markers/doc_types) unchanged when NeMo is off
+    # (the default) — existing consumers and tests see the exact same
+    # contract as before ADR-013. The two extra keys only appear once
+    # NeMo is actually enabled.
     data = {"flagged": scan.flagged, "markers": scan.markers, "doc_types": scan.doc_types}
-    if scan.flagged:
+    if nemo_enabled():
+        data["nemo_flagged"] = nemo_flagged
+        data["nemo_rationale"] = nemo_rationale
+    if scan.flagged or nemo_flagged:
+        sources = [s for s, hit in (("marker list", scan.flagged), ("NeMo", nemo_flagged)) if hit]
         emit(
-            "guardrail", f"Injection guardrail: instruction-like text found in {', '.join(scan.doc_types)}",
-            f"{len(scan.markers)} marker(s): {', '.join(scan.markers)}. The documents are still read as UNTRUSTED data, "
-            "but this claim can no longer be auto-paid: it will be flagged and sent to a human officer (T3)",
+            "guardrail", f"Injection guardrail: flagged by {' and '.join(sources)}",
+            (f"{len(scan.markers)} marker(s): {', '.join(scan.markers)}. " if scan.flagged else "")
+            + (f"NeMo: {nemo_rationale}. " if nemo_flagged else "")
+            + "The documents are still read as UNTRUSTED data, but this claim can no longer be "
+            "auto-paid: it will be flagged and sent to a human officer (T3)",
             level="warn", data=data,
         )
-        summary = f"{len(scan.markers)} injection marker(s) in {', '.join(scan.doc_types)}. Auto-pay disabled for this claim"
+        summary = f"Flagged by {' and '.join(sources)}. Auto-pay disabled for this claim"
     else:
         emit(
             "guardrail", "Injection guardrail: no instruction-like text in the documents",
-            f"scanned {', '.join(scanned)} before any agent reads them", level="success", data=data,
+            f"scanned {', '.join(scanned)} before any agent reads them"
+            + (f" (NeMo: {nemo_rationale})" if nemo_enabled() else ""), level="success", data=data,
         )
         summary = "No instruction-like text found"
     step("doc_guardrail", "done", summary, data)

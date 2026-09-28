@@ -83,6 +83,7 @@ never lives in the same process as agent code (see ADR-003).
 |---|---|---|
 | User → API | Form fields, uploaded documents | Session auth; `policy_number` from session; files stored as untrusted |
 | Documents → agents | Extracted text | Wrapped as data (delimited, labelled untrusted); never merged into system prompts |
+| Documents → NeMo (NVIDIA NIM) | Extracted text, when `NEMO_GUARDRAILS_ENABLED=true` | Advisory only (ADR-013): can only add a T3 flag, never clear one, never touches governance/tokens/gateway; off by default; fails open |
 | Agent → tool | Tool name + arguments | AGT policy check, per-agent tool allowlist |
 | Tool → data | Query | JWT scope, field allowlist, row binding to `claim_id` |
 | Agent → agent | Delegation, findings | Scopes cannot widen; findings are schema-validated JSON |
@@ -131,12 +132,15 @@ safely (e.g. route to human) rather than crash.
 sequenceDiagram
     participant P as Priya
     participant S as supervisor
+    participant G as document_guardrail
     participant I as intake
     participant M as medical_reviewer
     participant C as coverage
     participant F as fraud
     participant Y as payout
     P->>S: submit claim (bill + discharge summary)
+    S->>G: scan documents
+    G-->>S: marker-list scan (+ NeMo, if enabled) - clean
     S->>I: extract
     I-->>S: bill items -> claims; medical facts -> medical_records
     S->>M: review
@@ -150,6 +154,55 @@ sequenceDiagram
     Y-->>S: paid (AGT: amount + account verified)
     S-->>P: approved, breakdown shown
 ```
+
+`document_guardrail` and the anti-hallucination check after `coverage` (not shown above
+for brevity — see §6a) are plain code, not agents: they never appear as a tool call
+through the AGT adapter, because they run *before* an agent reads the documents and
+*after* an agent writes its explanation, not as an action an agent requests.
+
+---
+
+## 6a. Guardrails (ADR-011, ADR-013)
+
+Two deterministic checks sit around the agent pipeline, described in full in ADR-011.
+Both are plain Python and fail closed like every workflow step (§14), but neither one
+*enforces* anything by itself — enforcement is still AGT (§6) and the tier logic (§8);
+a guardrail hit only forces tier T3, so the claim reaches a human instead of being
+auto-paid.
+
+```mermaid
+flowchart LR
+    D[Untrusted documents] --> ML[Marker-list scan\ndeterministic, authoritative]
+    D -.->|if NEMO_GUARDRAILS_ENABLED| NM[NeMo: NVIDIA NIM\ncontent-safety model\nadvisory only]
+    ML --> OR{OR}
+    NM -.-> OR
+    OR --> FLAG[injection_suspected]
+    FLAG --> TIER[tier_decision: forces T3]
+```
+
+- **Marker-list scan** (`agents/guardrails.py::scan_documents`) is the sole authority:
+  a fixed phrase list, checked before any agent reads a document. Always on.
+- **NeMo second opinion** (`agents/nemo_guardrail.py`, ADR-013) sends the same document
+  text to NVIDIA's `nemotron-3.5-content-safety` NIM model as one classification call
+  and ORs its verdict into the same flag — it can add a T3 flag the marker list missed,
+  but can never clear one the marker list raised. **Off by default**
+  (`NEMO_GUARDRAILS_ENABLED=false`); when off, `check_injection` short-circuits before
+  any network call and the step's output is byte-identical to before ADR-013 (see
+  `tests/test_security_guardrails.py`). When on, it calls
+  `https://integrate.api.nvidia.com/v1/chat/completions` directly over HTTPS
+  (`NVIDIA_API_KEY`) — a separate credential from the six ClaimGuard agents' own
+  `GROQ_API_KEY`/`GEMINI_API_KEY`, and the only place in the system that key is used.
+  Fails **open** on any error (timeout, bad key, model unavailable): the claim
+  proceeds on the marker-list result alone, never blocked by NeMo's own availability.
+- **Anti-hallucination check** (`agents/guardrails.py::validate_explanation`), after
+  `coverage` writes its explanation: every ₹ amount must exist in the settlement, or
+  the text is replaced by a template built only from the settlement. Always on, no
+  advisory counterpart today.
+
+Both guardrail hits are visible the same way every other decision in this system is:
+a `guardrail.documents` / `guardrail.explanation` OTel span (§11) and a live event on
+the Console's Live Run page (§11a) — nothing about NeMo bypasses the same audit and
+trace path the marker-list scan already used.
 
 ---
 
@@ -238,11 +291,19 @@ the same person maps to the same pseudonym across claims without being reversibl
 |---|---|---|
 | `agent.run` | Agno instrumentation | agent_id, req_id |
 | `llm.call` | OpenInference | model, tokens, latency |
+| `guardrail.documents` | supervisor (`document_guardrail`, ADR-011/013) | req_id, claim_id, flagged, markers, doc_types, nemo_flagged, nemo_rationale |
+| `guardrail.explanation` | supervisor (`explanation_guardrail`, ADR-011) | req_id, claim_id, replaced, unexpected_amounts |
 | `governance.decision` | AGT adapter | tool, decision, rule_id, tier |
 | `token.issue` | Token service | agent_id, scope, jti, ttl |
 | `gateway.access` | Data gateway | collection, scope, rows, fields, jti |
 | `payout.execute` | Payments mock | amount, claim_id, agt_decision_id |
 | `human.decision` | API | officer_id, decision |
+
+`guardrail.documents`'s `nemo_flagged`/`nemo_rationale` attributes are only meaningful
+when `NEMO_GUARDRAILS_ENABLED=true` (ADR-013); the step's other attributes are
+unaffected either way, and no medical text or account numbers are ever placed in a
+guardrail span — `nemo_rationale` carries NeMo's safe/unsafe verdict string, not the
+document text itself.
 
 **Redaction rules:** span attributes and LLM input/output captured in Phoenix pass
 through a redaction processor: medical free text → `[REDACTED:medical]`, account
