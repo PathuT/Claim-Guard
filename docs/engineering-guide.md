@@ -1,4 +1,8 @@
-# ClaimGuard — Governed Multi-Agent Health Insurance Claims
+# ClaimGuard — Engineering guide
+
+The rules every change to this codebase follows: the security invariants, the agent and
+collection model, conventions and the definition of done. Source code comments cite
+invariants by number from this file (e.g. "invariant 7").
 
 A multi-agent system that processes health insurance **reimbursement claims** end to end:
 reading hospital documents, medical review, coverage assessment, fraud screening, and
@@ -104,7 +108,7 @@ Next.js console ──► Agno AgentOS (claim-assessment Workflow)
                         ▼
                  Data gateway ──► Postgres (one schema per collection)
 
-Arize Phoenix: traces across all layers      Harbor: containerized scenario evals
+Arize Phoenix: traces across all layers      Harbor: scenario evals S01–S10 (no Docker)
 ```
 
 ### Agents
@@ -117,6 +121,7 @@ Arize Phoenix: traces across all layers      Harbor: containerized scenario eval
 | `coverage` | Applies plan terms, calculates payable amount | `policy_terms:read`, `claims:read`, `policyholders:read_limited` |
 | `fraud` | Screens for duplicates, anomalies, watchlisted hospitals | `claims:read_pseudonymised`, `hospitals:read` |
 | `payout` | Issues payment after approval | `bank_details:read` (own claim's policyholder only), `payments:write` |
+| `officer_assistant` | Answers the officer's questions about one open claim (ADR-014) | None — six read-only, AGT-governed tools over the claim view the officer API assembles |
 
 ### Collections
 
@@ -141,12 +146,13 @@ Arize Phoenix: traces across all layers      Harbor: containerized scenario eval
 - **Microsoft Agent Governance Toolkit (AGT)** Python SDK — public preview, pin the version.
   Used for: policy engine, agent identity, trust scoring, execution rings, audit chain
 - PyJWT with EdDSA (Ed25519) for the token service
-- Postgres 16 (+ pgvector for plan-terms retrieval)
-- **Arize Phoenix** (self-hosted via Docker) + OpenInference instrumentation for Agno,
-  plus custom OTel spans for governance, token, and gateway events
-- **Harbor** for evaluation (custom tasks + custom agent adapter)
+- Postgres 16+ with pgvector (hosted on Supabase; any Postgres with pgvector works)
+- **Arize Phoenix** (self-hosted, `uv run phoenix serve`) + OpenInference instrumentation
+  for Agno, plus custom OTel spans for governance, token, gateway and guardrail events
+- **Harbor** for evaluation (custom tasks, custom agent adapter, no-Docker environment)
+- **NVIDIA NeMo / NIM** content-safety model as an optional, advisory guardrail (ADR-013)
 - Next.js (App Router, TypeScript) for the console
-- Docker Compose for local orchestration
+- `concurrently` (npm) to run all six local services with one command
 
 ---
 
@@ -154,31 +160,29 @@ Arize Phoenix: traces across all layers      Harbor: containerized scenario eval
 
 ```
 backend/
-  agents/          # Agno agent + team definitions, prompts
-  governance/      # AGT adapter, policies/ (YAML/Rego), audit chain
-  auth/            # token service (issue, validate, revoke)
-  data_gateway/    # the only code that touches Postgres
+  agents/          # Agno agents, the claim-assessment Workflow, guardrails, officer assistant
+  governance/      # AGT adapter, policy rules, tool allowlist, audit chain, identities
+  auth/            # token service (issue, validate, revoke, JWKS)
+  data_gateway/    # the only code that touches Postgres on behalf of agents
   payments_mock/   # records intended payouts
-  observability/   # OTel setup, custom span helpers, redaction
-  api/             # AgentOS app, officer decision endpoints for the console
+  observability/   # OTel setup, redaction, live event stream
+  api/             # AgentOS app, officer API, claim intake, compliance report
   tests/
-evals/harbor/
-  adapter/         # Harbor agent adapter that calls our AgentOS API
-  tasks/           # one folder per scenario S01–S10
+evals/
+  harbor/          # adapter, tasks S01–S10, no-Docker environment, runner
+  guardrail_bench/ # marker-list vs NeMo precision/recall benchmark
 frontend/          # Next.js console
-data/synthetic/    # generators, seed data, sample PDFs (incl. poisoned ones)
+data/synthetic/    # generators, sample PDFs (incl. poisoned ones)
 docs/
-docker-compose.yml
 Makefile
+package.json       # `npm run dev` starts every service
 ```
 
 ---
 
 ## Commands
 
-Create and maintain these in the `Makefile`:
-
-- `make up` / `make down` — start/stop the full stack (Postgres, Phoenix, backend, frontend)
+- `make up` (= `npm run dev`) — start Phoenix, token service, data gateway, AgentOS, officer API and the console; Ctrl+C stops all
 - `make seed` — load synthetic data
 - `make test` — all backend tests
 - `make test-security` — only invariant tests (must always pass)
@@ -188,13 +192,12 @@ Create and maintain these in the `Makefile`:
 
 ---
 
-## How to work in this repo
+## Conventions
 
-- **One milestone at a time** from `docs/plan.md`. Start in plan mode, confirm the plan,
-  then implement.
+- **One milestone at a time** from `docs/plan.md`, each ending in something demoable.
 - **Verify library APIs before using them.** Agno, AGT (preview), and Harbor change fast.
-  Check the installed version and its docs/source; do not guess function signatures
-  or config keys. If the docs and your memory disagree, trust the docs.
+  Check the installed version and its docs/source rather than assuming signatures or
+  config keys.
 - **Tests first for security code** (`governance/`, `auth/`, `data_gateway/`). Every
   invariant above has at least one test proving it, including a negative test
   (the attack is attempted and denied).

@@ -9,7 +9,7 @@ where the security story needs to be real: fraud reads pseudonymised claims
 and the hospital watchlist over the actual data gateway, and payout's
 execute_payout call is what PAY-001..006 exist to police. `call_tool()`
 below is the one function fraud.py/payout.py (and anything built after them)
-uses to do that; nothing here reaches Postgres directly (docs/CLAUDE.md
+uses to do that; nothing here reaches Postgres directly (docs/engineering-guide.md
 invariant 2).
 
 Sequence per call, matching docs/architecture.md §6 exactly:
@@ -100,7 +100,7 @@ def _get_token(agent_id: str, req_id: str, scope: str, claim_id: str | None) -> 
              data={"agent_id": agent_id, "scope": scope, "rule_id": detail.get("reason_code", "TOKEN-DENIED")})
         raise ToolCallDenied(detail.get("reason_code", "TOKEN-DENIED"), detail.get("message", resp.text))
     issued = resp.json()
-    # jti only — the token itself is never logged (docs/CLAUDE.md invariant 11).
+    # jti only — the token itself is never logged (docs/engineering-guide.md invariant 11).
     emit(
         "token",
         f"Token service minted a scoped JWT for {agent_id}",

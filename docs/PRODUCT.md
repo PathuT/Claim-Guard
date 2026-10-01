@@ -122,6 +122,8 @@ These were added because each one closes a real risk, not for decoration.
 | **Realistic hospital documents** | Toy PDFs make the demo look fake. | Generated hospital bills and discharge summaries with letterhead, registration numbers, barcode, QR code, stamp and itemised charges. The poisoned version carries invisible text. | Live Run → sample packs; `data/samples/` |
 | **Harbor check after every claim** | A demo claim could look right while its audit trail doesn't back it up. | When a Live Run claim finishes, the backend writes a one-task Harbor dataset for that claim and runs it with the same adapter, verifier and no-Docker environment as S01–S10. It is read-only, so it makes no AI calls. Outcome: the expected result for a sample pack or seeded scenario, plus rules every claim must meet (T2 auto-pay limits, flagged documents never paid, a clause for every deduction). Governance: every step governed, medical text only touched by the permitted agents, the payout matches the audit trail, every denial names its rule, and the hash chain is intact. Results go to `claim_jobs/`, so the S01–S10 scoreboard is untouched. | Live Run → "Harbor verified this claim" card |
 | **Harbor without Docker** | Harbor assumes containers, which aren't available everywhere. | A custom `BaseEnvironment` maps container paths to trial directories and runs a POSIX shell on the host (Git Bash on Windows). | `npm run eval` |
+| **NeMo second opinion (NVIDIA NIM)** | A fixed marker list misses a novel injection phrasing. | Each document also goes to NVIDIA's `nemotron-3.5-content-safety` model. Its verdict is OR'd into the same flag, so it can only add a T3 flag, never clear one, and a failed call falls back to the marker list. A benchmark measures it: on this corpus it matched the marker list's recall but added 3 false positives on clinical text, recorded honestly in ADR-013. | Live Run → injection guardrail; `evals/guardrail_bench/report.md` |
+| **Officer claim assistant** | An officer has to read every field to answer "why is this with me?" | An Agno agent with six read-only tools (overview, settlement, fraud signals, structured finding, bill, routing reasons). Every tool call is checked and audited by AGT; it is denied every action and restricted tool. Bank details, officer notes and document text are never in its data, and every ₹ amount in an answer is verified. | Officer → open a claim → "Ask about this claim" |
 
 ### The 16 policy rules enforced in code
 
@@ -157,8 +159,9 @@ These were added because each one closes a real risk, not for decoration.
 
 ## 6. Architecture decisions
 
-The ten ADRs are in [`adr/`](adr/), plus ADR-011 (guardrails) and ADR-012 (payout kill
-switch). The key ones:
+Fourteen ADRs are in [`adr/`](adr/): the ten from the build, plus ADR-011 (guardrails),
+ADR-012 (payout kill switch), ADR-013 (NeMo second opinion) and ADR-014 (officer claim
+assistant). The key ones:
 - **ADR-001, Agno.** Orchestration is a deterministic **Workflow**, not a Team. A
   Team's LLM leader would add an extra model call on every hop (cost, latency, rate
   limits) and would let injected text influence sequencing.

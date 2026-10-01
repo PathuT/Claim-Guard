@@ -84,7 +84,7 @@ def _pdf_page_count(raw_bytes: bytes) -> int:
 # (docs/use-case.md §8 S06). Detection here is observational only — it
 # labels the document for the Console's Story view and changes nothing
 # about how the agents treat it: every document is already untrusted
-# (docs/CLAUDE.md invariant 8), flagged or not.
+# (docs/engineering-guide.md invariant 8), flagged or not.
 INJECTION_MARKERS = (
     "system override", "ignore previous", "ignore all previous", "pre-approved", "do not route",
     "note to ai", "admin instruction", "supersedes all policy", "skip fraud", "approve automatically",

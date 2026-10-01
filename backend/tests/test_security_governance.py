@@ -104,7 +104,7 @@ def test_security_pay001_amount_mismatch_denied():
 
 
 def test_security_pay001_no_assessed_payable_on_record_fails_closed():
-    """docs/CLAUDE.md invariant 7: fail closed. No assessment on record at
+    """docs/engineering-guide.md invariant 7: fail closed. No assessment on record at
     all must deny, not silently allow whatever amount is requested."""
     ctx = _ctx(args={"amount": 10_000, "account_ref": "ACC-1"}, trusted={"registered_account_ref": "ACC-1"})
     with pytest.raises(GovernanceDenied) as exc:

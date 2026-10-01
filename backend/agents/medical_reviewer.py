@@ -1,5 +1,5 @@
 """Medical reviewer agent: the ONLY agent that reads medical_records
-(docs/CLAUDE.md invariant 4). Outputs a structured MedicalFinding — coverage
+(docs/engineering-guide.md invariant 4). Outputs a structured MedicalFinding — coverage
 and fraud never see the raw diagnosis text, only this finding.
 
 Inputs here are already intake's extracted diagnosis_text, not the raw PDF —

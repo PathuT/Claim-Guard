@@ -12,7 +12,7 @@ Usage:
                                            # so sibling packages like `observability` resolve)
 
 Reads MODEL_PROVIDER from the environment to pick which Agno model class to
-use (default: groq). Agno is model-agnostic (docs/CLAUDE.md); pick whichever
+use (default: groq). Agno is model-agnostic (docs/engineering-guide.md); pick whichever
 provider key you've set in .env.
 """
 

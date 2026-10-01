@@ -287,16 +287,24 @@ export interface AssistantMessage {
   content: string;
 }
 
+export interface AssistantStep {
+  tool: string;
+  decision: "allow" | "deny";
+  rule_id: string | null;
+}
+
 export interface AssistantAnswer {
   claim_id: string;
   answer: string;
+  steps: AssistantStep[];
   replaced: boolean;
   unexpected_amounts: number[];
 }
 
-/** ADR-014: read-only Q&A about one claim. The backend sends the model only
- * the settlement, flags and structured finding (never bank details, the
- * medical reviewer's notes or document text) and checks every ₹ amount. */
+/** ADR-014: an agent with six read-only tools answers about one claim. Each
+ * tool call is checked and audited by AGT; its data never includes bank
+ * details, the medical reviewer's notes or document text, and every ₹
+ * amount in the answer is checked against the settlement. */
 export function askClaimAssistant(claimId: string, question: string, history: AssistantMessage[]): Promise<AssistantAnswer> {
   return request(`${OFFICER_API_URL}/claims/${encodeURIComponent(claimId)}/assistant`, {
     method: "POST",

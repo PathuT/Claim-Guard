@@ -53,7 +53,7 @@ def _generate_key_pair() -> tuple[bytes, bytes]:
 def _load_or_generate() -> tuple[bytes, bytes]:
     """Loads TOKEN_SERVICE_PRIVATE_KEY (PEM, base64-encoded, from .env) if
     set; otherwise generates an ephemeral key pair. An ephemeral key is fine
-    for local dev (docs/CLAUDE.md: secrets from env vars) but means tokens
+    for local dev (docs/engineering-guide.md: secrets from env vars) but means tokens
     don't survive a process restart with an unset key — expected for M2."""
     raw = os.environ.get("TOKEN_SERVICE_PRIVATE_KEY")
     if raw:

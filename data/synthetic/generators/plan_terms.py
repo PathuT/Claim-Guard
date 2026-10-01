@@ -5,7 +5,7 @@ docs/use-case.md §5. Chunked by clause so coverage's retrieval (M4) can cite a
 
 Clause IDs are invented here (not given verbatim in the docs) but the *content*
 of every clause matches §5 exactly. If §5 changes, update this list to match —
-docs/CLAUDE.md: "insurance rules follow use-case.md section 5 exactly."
+docs/engineering-guide.md: "insurance rules follow use-case.md section 5 exactly."
 """
 
 from __future__ import annotations

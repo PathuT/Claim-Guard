@@ -17,7 +17,7 @@ class MedicalFinding(BaseModel):
     """medical_reviewer -> coverage, fraud, supervisor. Exact field set from
     docs/architecture.md §9 — do not add fields; coverage/fraud must only
     ever see this structured finding, never the raw discharge summary
-    (docs/CLAUDE.md invariant 4)."""
+    (docs/engineering-guide.md invariant 4)."""
 
     claim_id: str
     icd10: str

@@ -5,7 +5,7 @@ building M8's officer review endpoint, which needs the exact same
 remaining_sum_insured computation api/agentos.py's submit_claim already had
 as a private helper.
 
-Both callers are trusted assemblers (docs/CLAUDE.md invariant 7): these
+Both callers are trusted assemblers (docs/engineering-guide.md invariant 7): these
 values are computed here from Postgres directly, never accepted as
 arguments from an untrusted caller (the Console's officer view included —
 see api/officer.py's own /claims/{id}/review endpoint for why the officer

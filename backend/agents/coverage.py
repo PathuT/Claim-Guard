@@ -2,7 +2,7 @@
 (docs/security-matrix.md §2: policy_terms:read, claims:read,
 policyholders:read_limited). Never sees the discharge summary or medical
 records — only medical_reviewer's structured MedicalFinding
-(docs/CLAUDE.md invariant 4).
+(docs/engineering-guide.md invariant 4).
 
 The actual arithmetic lives in settlement.py (plain Python, deterministic —
 docs/architecture.md §2). This agent's job is narrower than "compute the

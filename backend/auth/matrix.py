@@ -1,6 +1,6 @@
 """The agent x scope matrix, TTLs, and trust thresholds from
 docs/security-matrix.md, as data. This is the single place the token service
-reads them from, so — per docs/CLAUDE.md ("Keep security-matrix.md as the
+reads them from, so — per docs/engineering-guide.md ("Keep security-matrix.md as the
 single source of truth for scopes. Code ... must be derived from it, never
 the other way round.") — a change to the matrix means editing this file to
 match, never the reverse.

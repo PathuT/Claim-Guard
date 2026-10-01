@@ -1,5 +1,5 @@
 """Data gateway request validation: docs/security-matrix.md §6, the 7-step
-checklist, checked in order, fail-closed (docs/CLAUDE.md invariant 7 — "Any
+checklist, checked in order, fail-closed (docs/engineering-guide.md invariant 7 — "Any
 error in policy evaluation, token validation, or the gateway = deny").
 
 This module validates and authorizes a request; it does not itself run SQL.

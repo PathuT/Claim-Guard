@@ -18,7 +18,7 @@ Outside a live run there is no registered queue for the current trace, so
 `emit()` and the span processor are both no-ops — the Harbor adapter, the
 plain POST /claims endpoint and every test behave exactly as before.
 
-Privacy (docs/CLAUDE.md invariant 9 applies here the same way it applies
+Privacy (docs/engineering-guide.md invariant 9 applies here the same way it applies
 to spans): every emitted string passes through observability/redaction's
 account-number/name rules, and `LiveEventSpanProcessor` is registered
 AFTER `RedactionSpanProcessor`, so the span attributes it reads have

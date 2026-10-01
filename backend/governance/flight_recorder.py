@@ -1,7 +1,7 @@
 """Shared FlightRecorder instance for the governance adapter.
 
 One process-wide recorder, backed by a local SQLite file (AGT's own storage
-choice — docs/CLAUDE.md invariant 10 only requires append-only + hash-chained,
+choice — docs/engineering-guide.md invariant 10 only requires append-only + hash-chained,
 which FlightRecorder already provides; see M3 notes on why this isn't mirrored
 into Postgres yet). Path is configurable via FLIGHT_RECORDER_DB_PATH so tests
 can point it at a throwaway file instead of the real audit trail.

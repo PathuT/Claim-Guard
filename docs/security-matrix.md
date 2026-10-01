@@ -109,8 +109,13 @@ Any failure → 403 with a reason code, audit entry, and `gateway.access` span w
 | `coverage` | `search_policy_terms`, `read_policy_limited`, `read_claim`, `submit_assessment` |
 | `fraud` | `search_claims_pseudonymised`, `read_hospital`, `submit_fraud_screen` |
 | `payout` | `read_bank_details`, `execute_payout` |
+| `officer_assistant` | `get_claim_overview`, `get_settlement`, `get_fraud_signals`, `get_medical_finding`, `get_bill`, `get_routing_reasons` (read-only; ADR-014) |
 
 Any tool not in the agent's row is denied, even if the tool exists.
+
+`officer_assistant` holds **no data scope** (§2 is unchanged): its tools return slices of
+the allowlisted claim view the officer API assembles for the page, with no bank details,
+officer notes or document/diagnosis text.
 
 Human console roles whose actions are routed through the same adapter so they land in
 the same audit log (they are not agents and hold no data scopes):

@@ -1,8 +1,8 @@
 """The AGT governance adapter: every agent tool call passes through
-`check_and_audit()` before it executes (docs/CLAUDE.md invariant 1, ADR-002).
+`check_and_audit()` before it executes (docs/engineering-guide.md invariant 1, ADR-002).
 
 Wraps AGT's real `agent_control_plane.FlightRecorder` for the hash-chained
-audit log (docs/CLAUDE.md invariant 10) and implements the GOV/PAY/STATE/DATA
+audit log (docs/engineering-guide.md invariant 10) and implements the GOV/PAY/STATE/DATA
 rules (plus GOV-004, the compliance payout kill switch — ADR-012) from
 docs/security-matrix.md §8 as plain Python predicates in
 governance/rules.py (see ADR-002's "Integration approach" section for why we
@@ -61,7 +61,7 @@ class ToolCallContext:
     # Trusted context, fetched by the caller from Postgres/gateway — never
     # from `args`. Only the keys a given rule needs must be populated;
     # absence is treated as "can't confirm this is safe" -> deny, per
-    # docs/CLAUDE.md invariant 7 (fail closed).
+    # docs/engineering-guide.md invariant 7 (fail closed).
     trusted: dict[str, Any] = field(default_factory=dict)
 
 
@@ -74,7 +74,7 @@ class GovernanceDenied(Exception):
 
 def check_and_audit(ctx: ToolCallContext) -> str:
     """The one function every agent tool call must go through
-    (docs/CLAUDE.md invariant 1). Raises GovernanceDenied on any policy
+    (docs/engineering-guide.md invariant 1). Raises GovernanceDenied on any policy
     failure; returns the audit trace_id (FlightRecorder's own id for this
     decision) on success. Always writes an audit entry via FlightRecorder
     and a `governance.decision` span, on both the allow and deny path.

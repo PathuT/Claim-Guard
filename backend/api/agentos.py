@@ -19,7 +19,7 @@ supervisor itself doesn't fetch — those are the caller's job per
 run_claim_flow's own contract (settlement.PolicyContext, registered_account_ref,
 etc. are all assembled by the caller from trusted stores, never agent
 arguments). This module is that caller, playing the same "trusted assembler"
-role docs/CLAUDE.md invariant 7 already establishes for api/officer.py.
+role docs/engineering-guide.md invariant 7 already establishes for api/officer.py.
 """
 
 from __future__ import annotations
@@ -274,7 +274,7 @@ def assess_claim(claim_id: str, db: Session) -> SubmitClaimResponse:
             # intake actually ran and extracted structured data, not just
             # the downstream agents' outputs. Deliberately NOT
             # result.intake_result.model_dump() as-is: IntakeResult also
-            # carries diagnosis_text, the raw medical text docs/CLAUDE.md
+            # carries diagnosis_text, the raw medical text docs/engineering-guide.md
             # invariant 4 says only medical_reviewer may ever see —
             # persisting it here into a field every Console role reads back
             # (policyholder, officer, compliance) would leak it straight

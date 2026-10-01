@@ -20,7 +20,7 @@ States (from the diagram in §8):
 "There is no edge from assessing to rejected. Only an officer creates
 rejected" (§8) — enforced below by TRANSITIONS simply not listing that edge,
 and STATE-001 additionally denying it even if this module had a bug that let
-it through, per docs/CLAUDE.md invariant 7 (defense in depth, fail closed).
+it through, per docs/engineering-guide.md invariant 7 (defense in depth, fail closed).
 """
 
 from __future__ import annotations

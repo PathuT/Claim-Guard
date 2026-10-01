@@ -115,7 +115,7 @@ class OfficerReviewResponse(BaseModel):
     claimed_amount: int
     stated_illness: str
     assessment: dict | None
-    # Trusted, server-computed payout context (docs/CLAUDE.md invariant 7):
+    # Trusted, server-computed payout context (docs/engineering-guide.md invariant 7):
     # the officer decides an amount and outcome; these are never the
     # Console's to supply, so the review endpoint hands them back for the
     # Console to echo verbatim in its POST /decisions call, exactly the way
@@ -248,7 +248,7 @@ class BreakGlassResponse(BaseModel):
 def break_glass_discharge_summary(claim_id: str, req: BreakGlassRequest, db: Session = Depends(_get_db)) -> BreakGlassResponse:
     """docs/plan.md M8 / docs/security-matrix.md §9: the one console
     capability that deliberately bypasses the normal "only intake/
-    medical_reviewer ever see medical_records" restriction (docs/CLAUDE.md
+    medical_reviewer ever see medical_records" restriction (docs/engineering-guide.md
     invariant 4, enforced for agents by DATA-001) — for a human officer,
     reading Postgres directly (same trusted-assembler pattern as every
     other endpoint here), gated on a required reason and logged through the
@@ -291,7 +291,7 @@ def break_glass_discharge_summary(claim_id: str, req: BreakGlassRequest, db: Ses
         # Not expected in practice (GOV-001 only fires for an
         # unregistered agent/tool pairing, and claims_officer/this tool
         # name is registered specifically for this) — kept fail-closed
-        # anyway per docs/CLAUDE.md invariant 7, rather than assuming this
+        # anyway per docs/engineering-guide.md invariant 7, rather than assuming this
         # branch is unreachable.
         raise HTTPException(status_code=403, detail={"reason_code": exc.rule_id, "message": exc.message}) from None
 

@@ -20,7 +20,7 @@ necessary because two different kinds of attribute need catching:
 2. OpenInference's Agno auto-instrumentation, which captures the RAW agent
    input/output as `input.value`/`output.value` span attributes — this is
    the actual live risk: medical_reviewer's `input.value` contains the raw
-   diagnosis text (docs/CLAUDE.md invariant 4 is about which *agents* may
+   diagnosis text (docs/engineering-guide.md invariant 4 is about which *agents* may
    read medical data, not about what ends up in a trace export), and
    intake's contains the raw bill/discharge summary text. The LLM call span
    ITSELF (`Groq.invoke`/etc., separate from the agent-level span) carries a

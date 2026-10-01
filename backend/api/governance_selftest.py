@@ -60,7 +60,7 @@ def probe_scope_matrix() -> ScopeMatrixProbeResult:
     docs/security-matrix.md §2 marks "-" for coverage. Signs a REAL identity
     assertion as `coverage` requesting that scope and submits it to the
     real, running token service's POST /tokens; the token service must
-    refuse it with GOV-003 before any JWT is ever minted (docs/CLAUDE.md
+    refuse it with GOV-003 before any JWT is ever minted (docs/engineering-guide.md
     invariant: an out-of-matrix scope is refused at issuance, never merely
     filtered later)."""
     req_id = f"selftest-s07-{int(time.time() * 1000)}"

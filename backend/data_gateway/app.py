@@ -2,7 +2,7 @@
 
 Run: uv run uvicorn data_gateway.app:app --port 8200 (see DATA_GATEWAY_PORT in .env).
 
-The only service that queries Postgres directly (docs/CLAUDE.md invariant 2).
+The only service that queries Postgres directly (docs/engineering-guide.md invariant 2).
 Every request goes through the full checklist in gateway.py before touching
 the DB: token validation -> row binding -> field-allowlist filtering.
 

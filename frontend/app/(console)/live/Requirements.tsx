@@ -4,7 +4,7 @@ import { ranAt, useSystemFacts } from "@/app/_components/LiveFacts";
 import { formatInr } from "@/lib/format";
 import type { LogLine } from "./LiveConsole";
 
-/** The project's requirements (docs/CLAUDE.md's non-negotiable invariants
+/** The project's requirements (docs/engineering-guide.md's non-negotiable invariants
  * plus the core functional asks and the deterministic guardrails), each
  * ticked off by concrete evidence from THIS run's live backend log and step
  * events — not a static claim. A requirement a

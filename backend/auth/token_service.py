@@ -54,7 +54,7 @@ class TrustRefused(TokenServiceError):
 
 class DelegationWidened(TokenServiceError):
     """A delegated request asked for a scope its parent doesn't itself hold —
-    "delegation never widens access" (docs/CLAUDE.md invariant 5)."""
+    "delegation never widens access" (docs/engineering-guide.md invariant 5)."""
 
 
 # --- In-memory revocation + trust state (M2 scope) ---
@@ -142,7 +142,7 @@ def issue_token(assertion: IdentityAssertion, parent_scopes: set[str] | None = N
 
     `parent_scopes`: if this assertion has a `parent`, the parent's own
     granted scopes for this req_id — used to enforce "delegation never
-    widens access" (docs/CLAUDE.md invariant 5). None means this is a
+    widens access" (docs/engineering-guide.md invariant 5). None means this is a
     top-level request (e.g. supervisor), not a delegated one.
     """
     verify_identity_assertion(assertion)

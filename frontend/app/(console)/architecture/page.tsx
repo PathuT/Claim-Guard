@@ -293,9 +293,9 @@ const ADDED: { name: string; tag: string; risk: string; how: string; see: string
   },
   {
     name: "Officer claim assistant",
-    tag: "Read-only · no tools, no new access",
+    tag: "Agno agent · 6 AGT-governed read-only tools",
     risk: "An officer deciding a T3 claim has to read every field to answer “why is this with me?”",
-    how: "A chat panel on the open claim answers from the same settlement, flags and structured finding the page already shows. Bank details, the medical reviewer's note and document text are never sent to the model. Every ₹ amount in an answer must be in the settlement, or the answer is replaced. It cannot approve, reject or pay.",
+    how: "An agent on the open claim plans which tools to call (overview, settlement, fraud signals, structured medical finding, bill, routing reasons) and answers from what they return. Every tool call is checked and audited by AGT like any agent's; it is denied payout, state changes, bank details and medical records. Bank details, the medical reviewer's note and document text are never in its data. Every ₹ amount in an answer must be in the settlement, or the answer is replaced. The panel shows which tools it used.",
     see: "Officer → Ask about this claim",
     href: "/officer",
     adr: "ADR-014",
@@ -525,7 +525,7 @@ const DECISIONS = [
   { adr: "011", title: "Guardrails around the model, enforced in code", chose: "Two plain-code Workflow steps: a hidden-instruction scan that forces T3 (never auto-pay), and a check that every ₹ amount in the explanation exists in the settlement.", over: "Rejecting flagged claims (breaks STATE-001, hurts honest claimants), stripping the text (hides evidence), an LLM judge (probabilistic, attackable, costs tokens)." },
   { adr: "012", title: "Payout kill switch (GOV-004)", chose: "A governed, audited compliance toggle, re-read on every payout check, that freezes automated payouts only. Fails closed on a damaged state.", over: "An env flag (restart, no audit), an in-memory flag (not shared across processes), freezing officer payouts too (blocks the human path during an incident)." },
   { adr: "013", title: "NeMo Guardrails as an advisory second opinion", chose: "NVIDIA NIM content-safety model OR'd into the same injection flag as the marker-list scan — off by default, can only add a T3 flag, never clear one, fails open on any error.", over: "Replacing the marker list with NeMo (reopens ADR-011's own rejected LLM-judge argument), letting NeMo's verdict override the marker list either way (would let its absence reduce caution)." },
-  { adr: "014", title: "Read-only claim assistant for the officer", chose: "A chat panel scoped to the open claim, fed an allowlist of fields the page already shows; no tools, no new scope; every ₹ amount checked against the settlement.", over: "A seventh agent with gateway access (new identity and scopes for a convenience feature), forwarding the whole review response (would send bank details and officer notes to the model), cross-claim questions (deferred)." },
+  { adr: "014", title: "Officer claim assistant with governed read-only tools", chose: "An Agno agent scoped to the open claim with six read-only tools, each checked and audited by AGT, reading an allowlisted claim view; no data scope; every ₹ amount checked against the settlement.", over: "One model call with the claim pasted in (ungoverned, sends every field), a seventh agent with gateway access (new identity and scopes), forwarding the whole review response (bank details and officer notes to the model)." },
 ];
 
 function Decisions() {

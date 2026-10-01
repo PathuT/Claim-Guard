@@ -8,7 +8,7 @@ system prompts." Document text is passed in the *user* message inside clear
 delimiters and an explicit untrusted label — `instructions` (the system
 prompt) never contains document content, so a prompt injection inside a PDF
 can at most compete with the user turn, never rewrite the agent's own
-instructions (docs/CLAUDE.md invariant 8).
+instructions (docs/engineering-guide.md invariant 8).
 
 M4 scope: extraction only. Writing to claims/medical_records goes through
 the data gateway once the supervisor wiring calls this — not yet in M4 (see

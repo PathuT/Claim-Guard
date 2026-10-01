@@ -186,7 +186,7 @@ def _fail_closed(fn):
     exception is recorded on the context and the workflow is stopped
     (StepOutput(stop=True)) — nothing after a failed step runs, and
     run_claim_flow raises instead of returning a half-assessed claim
-    (docs/CLAUDE.md invariant 7, fail closed)."""
+    (docs/engineering-guide.md invariant 7, fail closed)."""
 
     @functools.wraps(fn)
     def wrapper(step_input: StepInput) -> StepOutput:

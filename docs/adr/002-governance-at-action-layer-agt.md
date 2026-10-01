@@ -34,7 +34,7 @@ custom Agno ↔ AGT adapter, not a drop-in plugin.
 - **`FlightRecorder`** (`agent_control_plane`) is the real audit trail —
   append-only, hash-chained (`previous_hash`/`entry_hash`), with
   `verify_integrity()` detecting post-hoc tampering. It already implements
-  docs/CLAUDE.md invariant 10 correctly, so we did not reimplement
+  docs/engineering-guide.md invariant 10 correctly, so we did not reimplement
   hash-chaining ourselves; our custom `Audit` SQLAlchemy model from M1 is
   unused. FlightRecorder stores to its own local SQLite file, separate from
   the Supabase Postgres used for claims/policyholders/etc. — acceptable for

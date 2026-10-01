@@ -1,68 +1,76 @@
-# ADR-014: Read-only claim assistant for the officer
+# ADR-014: Officer claim assistant — an agent with governed, read-only tools
 
 - **Status:** accepted
 - **Date:** 2026-09-28
 
 ## Context
 A claims officer deciding a T3 claim reads the settlement, deductions with clause ids,
-fraud signals and the medical reviewer's structured finding on the Officer page.
-Officers asked for a faster way to get answers such as "why is this with me instead of
-auto-paid?" or "which clause caused the biggest deduction?" without reading every field.
+fraud signals and the medical reviewer's structured finding on the Officer page. Officers
+wanted a faster way to get answers such as "why is this with me instead of auto-paid?" or
+"which clause caused the biggest deduction?".
 
-A chatbot is one more LLM call, and it could quietly widen access. If it had tools, its
-own data access, or any raw text the page keeps back, it would need its own identity,
-scope and audit path, which amounts to a seventh agent. The question is how to give
-officers natural-language answers without adding any access.
+An assistant is one more model in the system, and the easy designs widen access: giving it
+the whole review response would send the bank account number and the reviewer's notes to
+the model provider; giving it its own data access would make it a seventh data-holding
+agent with new scopes. The question is how to give officers an agent that plans and looks
+things up, without adding any access.
 
 ## Decision
-Add a read-only assistant panel to the Officer page, scoped to the one claim that is
-open, over data the page already shows.
+Add an **Agno agent with six read-only tools** to the Officer page, scoped to the one claim
+that is open.
 
-- **No new access.** `POST /claims/{id}/assistant` on the officer API
-  (`backend/api/officer.py`) reads the claim the same way `GET /claims/{id}/review`
-  already does. `agents/officer_assistant.py` copies an allowlist of named fields into
-  the prompt: status, claimed/payable/co-pay, deductions with clause ids,
-  recommended decision, flags, fraud signals, the structured medical finding and the
-  bill's line items and dates. The assistant has no tools, no AGT identity, no
-  token-service scope and never calls the data gateway, so `security-matrix.md` does
-  not change.
-- **Never sent to the model:** the bank account number (`registered_account_ref`), the
-  medical reviewer's `notes_for_officer` (schemas.py: "never passed to other agents"),
-  the claimant-written `stated_illness`, document text and diagnosis text (invariant 4).
-  Because fields are copied by name, a field added to `claims.assessment` later stays
-  out until someone adds it on purpose.
-- **Same guardrail as ADR-011.** Every ₹ amount in the answer must be in the claim's
-  data (the settlement's allowed amounts, the remaining sum insured, the bill total and
-  line items). If one is not, the answer is replaced with a notice naming the amount.
-- **Fail closed.** A claim with no assessment gets a fixed answer without a model call.
-  A model error or empty answer returns 502 `ASSISTANT-UNAVAILABLE`, never a guess.
-- **No actions.** It cannot approve, reject or pay; the decision form stays the only way
-  a T3 claim moves.
-- **Same model config as the agents** (`MODEL_PROVIDER`/`MODEL_ID`, Groq retries), so
-  no new key or vendor.
-- **Observable.** An `officer.assistant` span (claim id, question length, whether the
-  answer was replaced; never the question or answer text) plus Agno's own spans, which
-  the redaction processor already masks. Terminal log lines use the same `emit` as the
-  guardrails.
+- **Agentic.** The model starts with only the claim id and the question. It chooses which
+  tools to call (at most 8 calls per question), then answers from what they returned:
+  `get_claim_overview`, `get_settlement`, `get_fraud_signals`, `get_medical_finding`,
+  `get_bill`, `get_routing_reasons`.
+- **Every tool call is governed** (invariant 1). Each call goes through
+  `check_and_audit()` as agent `officer_assistant`: GOV-001 allowlist
+  (`security-matrix.md` §7), GOV-002 per-request budget, a hash-chained audit entry and a
+  `governance.decision` span. A denial is returned to the model as a structured denial,
+  never data; an error in the check is a denial (invariant 7). The assistant is denied
+  every action and restricted tool (payout, state changes, bank details, medical records,
+  break-glass), proven by tests.
+- **No new data access.** The tools never touch a data store. `POST /claims/{id}/assistant`
+  on the officer API reads the claim the same way `GET /claims/{id}/review` already does
+  and builds an allowlisted claim view; each tool returns one slice of it. The assistant
+  holds no data scope and no token, so the agent × collection matrix does not change.
+- **Never in the claim view:** the bank account number, the medical reviewer's
+  `notes_for_officer` (schemas.py: "never passed to other agents"), the claimant-written
+  `stated_illness`, document text and diagnosis text (invariant 4). Fields are copied by
+  name, so a field added to `claims.assessment` later stays out until added on purpose.
+- **Routing answers come from code, not the model.** `get_routing_reasons` runs the same
+  `decide_tier()` the claim-assessment workflow ran.
+- **Same ₹ guardrail as ADR-011.** Every amount in the answer must exist in the claim's
+  data (settlement amounts, remaining sum insured, bill figures, the ₹50,000 auto-pay
+  ceiling), or the answer is replaced with a notice naming the amount.
+- **Fail closed.** A claim with no assessment gets a fixed answer with no model call. A
+  model error or empty answer returns 502 `ASSISTANT-UNAVAILABLE`, never a guess.
+- **No actions.** It cannot approve, reject or pay; the decision form stays the only way a
+  T3 claim moves.
+- **Same model config as the claim agents** (`MODEL_PROVIDER` / `MODEL_ID`).
+- **Visible.** The answer lists the tools the agent called and whether AGT allowed each;
+  an `officer.assistant` span records the tools called (never the question or answer
+  text); Agno's spans pass through the redaction processor.
 
 ## Alternatives considered
-- **A seventh agent with gateway access**, so it could answer anything: needs a new
-  identity, scopes and trust thresholds for a convenience feature, and widens who reads
-  what.
-- **Forwarding the whole review response to the model:** simpler, but it would send
-  the bank account number and the officer notes to the model provider.
-- **Including the discharge summary via break-glass:** an audited human exception
-  would become routine machine access.
+- **A single model call with the claim pasted into the prompt** (the first version):
+  simpler, but every answer sends every field, and nothing about the model's behaviour is
+  governed or audited.
+- **A seventh agent with data-gateway access:** a new identity, scopes and trust
+  thresholds for a convenience feature, and a wider read surface.
+- **Forwarding the whole review response:** would send bank details and officer notes to
+  the model provider.
+- **Including the discharge summary via break-glass:** an audited human exception would
+  become routine machine access.
 - **Cross-claim questions** ("all T3 claims with fraud flags this week"): needs a list
-  endpoint and a wider data set. Deferred.
-- **Policyholder-facing chat:** a new consumer-facing surface with its own abuse cases,
-  and not what the officer asked for.
+  endpoint over many claims. Deferred.
 
 ## Consequences
-- Officers get quick, grounded answers with no change to access, scopes or the audit
-  model.
-- An answer can only be as good as the fields it sees. It cannot explain the medical
-  reasoning beyond the structured finding, and says so.
-- The ₹ check can replace an honest answer that computed a new figure (for example a
-  sum of two line items), as with ADR-011: the cost is a notice, never a wrong number.
-- One more model call per question, against the same Groq rate limit as claim runs.
+- Officers get grounded answers and can see exactly what the agent looked up; every
+  lookup is in the same audit log as the claim agents' tool calls.
+- Answers are limited to the fields in the claim view; the assistant says so when asked
+  for anything else.
+- The ₹ check can replace an honest answer that computed a new figure (e.g. a sum of two
+  line items), as with ADR-011: the cost is a notice, never a wrong number.
+- Several model round trips per question (one per tool step), against the same provider
+  rate limit as claim runs.

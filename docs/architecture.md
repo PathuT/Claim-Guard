@@ -63,7 +63,7 @@ flowchart TB
 | Next.js console | Claim submission, officer queue, compliance views | Next.js (TS) | Untrusted client |
 | AgentOS API | Hosts agents, exposes claim + decision endpoints | Agno AgentOS (FastAPI) | Semi-trusted |
 | Agents (6) | Extraction, review, assessment, screening, payout requests | Agno agents + team | **Untrusted reasoning** |
-| Officer claim assistant | Read-only Q&A about one open claim (ADR-014) | Agno agent, no tools, on the officer API | Untrusted reasoning, no data access of its own |
+| Officer claim assistant | Answers questions about one open claim (ADR-014) | Agno agent with 6 read-only tools, each checked by AGT; on the officer API | Untrusted reasoning, no data scope of its own |
 | AGT adapter | Intercepts every tool call, evaluates policy, writes audit | AGT Python SDK + custom Agno glue | Trusted |
 | Token service | Verifies AGT agent identity + trust score, mints short-lived scoped JWTs, publishes JWKS, revokes by `jti` | FastAPI + PyJWT (EdDSA) | Trusted, holds private key |
 | Data gateway | Validates JWT, enforces field allowlists and row binding, queries DB | FastAPI + SQL | Trusted, public key only |
@@ -300,7 +300,7 @@ the same person maps to the same pseudonym across claims without being reversibl
 | `gateway.access` | Data gateway | collection, scope, rows, fields, jti |
 | `payout.execute` | Payments mock | amount, claim_id, agt_decision_id |
 | `human.decision` | API | officer_id, decision |
-| `officer.assistant` | Officer API (ADR-014) | claim_id, question_chars, history_messages, model_called, replaced, unexpected_amounts |
+| `officer.assistant` | Officer API (ADR-014) | req_id, claim_id, question_chars, history_messages, model_called, tools_called, tools_denied, replaced, unexpected_amounts |
 
 `guardrail.documents`'s `nemo_flagged`/`nemo_rationale` attributes are only meaningful
 when `NEMO_GUARDRAILS_ENABLED=true` (ADR-013); the step's other attributes are

@@ -15,7 +15,7 @@ Writes are atomic (temp file in the same directory + os.replace), so a
 reader in another process sees either the old state or the new one, never a
 half-written file.
 
-Reading FAILS CLOSED (docs/CLAUDE.md invariant 7):
+Reading FAILS CLOSED (docs/engineering-guide.md invariant 7):
   - file missing            -> not frozen (the normal first-run state; the
                                switch has simply never been touched)
   - file present but unreadable, not JSON, wrong shape, or `frozen` not a

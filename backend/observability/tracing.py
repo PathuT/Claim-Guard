@@ -12,7 +12,7 @@ propagation)") — before this, every process started its own independent
 trace with no shared trace_id, so "one trace per req_id" was only true of
 the audit log (FlightRecorder's own trace_id), not of Phoenix.
 
-docs/CLAUDE.md's own stack line is explicit: "OpenInference instrumentation
+docs/engineering-guide.md's own stack line is explicit: "OpenInference instrumentation
 for Agno, plus custom OTel spans for governance, token, and gateway events"
 — this project's spans are hand-rolled, not produced by generic
 auto-instrumentation libraries wrapping httpx/FastAPI. Propagation here

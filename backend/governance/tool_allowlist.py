@@ -2,7 +2,7 @@
 not in agent's allowlist" -> deny, even if the tool exists at all.
 
 Kept as data, mirroring auth/matrix.py's AGENT_SCOPES — same
-single-source-of-truth discipline docs/CLAUDE.md asks for with the security
+single-source-of-truth discipline docs/engineering-guide.md asks for with the security
 matrix.
 """
 

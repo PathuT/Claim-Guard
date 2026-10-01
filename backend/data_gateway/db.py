@@ -1,7 +1,7 @@
 """Engine/session setup shared by the data gateway and the M1 seed scripts.
 
 Only this module (and code that imports it) is meant to open a DB connection.
-docs/CLAUDE.md invariant 2: "All data access goes through the data gateway."
+docs/engineering-guide.md invariant 2: "All data access goes through the data gateway."
 M1's generator scripts are a deliberate, temporary exception — they populate
 the DB directly since no agent or token is involved yet. From M2 onward, the
 gateway's HTTP API is the only path other services use.
